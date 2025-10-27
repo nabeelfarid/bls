@@ -7,6 +7,7 @@ using Amazon.DynamoDBv2.Model;
 using Amazon.Lambda.Core;
 using Amazon.Lambda.APIGatewayEvents;
 using BlsApi.Models;
+using BlsApi.Utils;
 
 namespace BlsApi.Functions
 {
@@ -24,11 +25,7 @@ namespace BlsApi.Functions
         {
             try
             {
-                // Log the incoming request
-                context.Logger.LogInformation($"Request Path: {request.Path}");
-                context.Logger.LogInformation($"Request Method: {request.HttpMethod}");
-                context.Logger.LogInformation($"Path Parameters: {JsonSerializer.Serialize(request.PathParameters)}");
-                context.Logger.LogInformation($"Query String Parameters: {JsonSerializer.Serialize(request.QueryStringParameters)}");
+                RequestLogger.LogRequest(request, context);
 
                 var scanRequest = new ScanRequest
                 {

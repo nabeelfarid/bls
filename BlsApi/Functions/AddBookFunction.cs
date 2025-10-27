@@ -6,6 +6,7 @@ using Amazon.DynamoDBv2.Model;
 using Amazon.Lambda.Core;
 using Amazon.Lambda.APIGatewayEvents;
 using BlsApi.Models;
+using BlsApi.Utils;
 
 [assembly: LambdaSerializer(typeof(Amazon.Lambda.Serialization.SystemTextJson.DefaultLambdaJsonSerializer))]
 
@@ -25,12 +26,7 @@ namespace BlsApi.Functions
         {
             try
             {
-                // Log the incoming request
-                context.Logger.LogInformation($"Request Path: {request.Path}");
-                context.Logger.LogInformation($"Request Method: {request.HttpMethod}");
-                context.Logger.LogInformation($"Request Body: {request.Body}");
-                context.Logger.LogInformation($"Path Parameters: {JsonSerializer.Serialize(request.PathParameters)}");
-                context.Logger.LogInformation($"Query String Parameters: {JsonSerializer.Serialize(request.QueryStringParameters)}");
+                RequestLogger.LogRequest(request, context);
 
                 if (string.IsNullOrEmpty(request.Body))
                 {
