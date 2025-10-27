@@ -1,0 +1,55 @@
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    permissions:
+      id-token: write
+      contents: read
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '8.0.x'
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      
+      - name: Install AWS CDK
+        run: npm install -g aws-cdk
+      
+      - name: Configure AWS Credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ secrets.AWS_REGION }}
+      
+      - name: Build Lambda functions
+        run: make build
+      
+      - name: CDK Synth
+        run: cdk synth
+      
+      - name: CDK Deploy
+        run: cdk deploy --require-approval never
+      
+      - name: Get API Gateway URL
+        run: |
+          echo "Deployment completed!"
+          aws cloudformation describe-stacks \
+            --stack-name BlsCdkAppStack \
+            --query 'Stacks[0].Outputs[?OutputKey==`BooksApiEndpointF2AA70A2`].OutputValue' \
+            --output text
+
