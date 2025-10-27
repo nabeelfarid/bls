@@ -70,6 +70,84 @@ The collection includes examples for:
 - AWS CDK CLI
 - AWS CLI configured with appropriate credentials
 
+### Running Tests
+
+```bash
+# Run all unit tests
+dotnet test
+
+# Or use make
+make test
+
+# Run tests with detailed output
+dotnet test --verbosity normal
+
+# Run tests with code coverage
+dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
+```
+
+#### Test Suite Overview
+
+The project includes **18 unit tests** using **xUnit**, **Moq**, and **FluentAssertions**:
+
+**Test Structure:**
+```
+BlsApi.Tests/
+├── Functions/
+│   └── AddBookFunctionTests.cs      # Tests for AddBookFunction Lambda handler
+└── Utils/
+    └── ValidationHelperTests.cs      # Tests for validation logic
+```
+
+**AddBookFunctionTests** (11 tests):
+- ✅ Valid book creation returns 201
+- ✅ Empty/null body returns 400
+- ✅ Invalid JSON returns 400
+- ✅ Missing required fields returns 400 with validation errors
+- ✅ DynamoDB failures return 500
+- ✅ Correct DynamoDB keys (PK/SK) are set
+- ✅ CORS headers are included
+
+**ValidationHelperTests** (7 tests):
+- ✅ Valid book passes validation
+- ✅ Empty/missing title fails validation
+- ✅ Empty/missing author fails validation
+- ✅ Empty/missing ISBN fails validation
+- ✅ Title/Author too long fails validation
+- ✅ Null object fails validation
+- ✅ Multiple validation errors are returned
+
+**Example Test:**
+```csharp
+[Fact]
+public async Task Handler_WithValidBook_ShouldReturn201()
+{
+    // Arrange
+    var mockDynamoDb = new Mock<IAmazonDynamoDB>();
+    mockDynamoDb
+        .Setup(x => x.PutItemAsync(It.IsAny<PutItemRequest>(), default))
+        .ReturnsAsync(new PutItemResponse { HttpStatusCode = HttpStatusCode.OK });
+
+    var function = new AddBookFunction(mockDynamoDb.Object);
+    var request = new APIGatewayProxyRequest { Body = "..." };
+
+    // Act
+    var response = await function.Handler(request, context);
+
+    // Assert
+    response.StatusCode.Should().Be(201);
+    mockDynamoDb.Verify(x => x.PutItemAsync(...), Times.Once);
+}
+```
+
+**Testing Best Practices:**
+1. **Follow AAA Pattern**: Arrange, Act, Assert
+2. **Use descriptive test names**: `Handler_WithValidBook_ShouldReturn201`
+3. **Mock external dependencies**: DynamoDB, S3, etc.
+4. **Test edge cases**: null, empty, invalid inputs
+5. **Verify mock interactions**: Ensure methods are called correctly
+6. **Use FluentAssertions** for readable assertions
+
 ### Build and Deploy
 
 ```bash
@@ -176,6 +254,177 @@ Once configured, every push to `main` will:
 - **Request Logging**: Centralized `RequestLogger` utility for consistent logging across all handlers
 - **Request Validation**: Data Annotations with `ValidationHelper` utility for input validation
 - **JSON Serialization**: Lowercase property names for REST API convention compliance
+
+### Key Tradeoffs
+
+#### 1. **Lambda per Endpoint vs Monolithic Lambda**
+
+**Current Choice: Lambda per Endpoint**
+
+✅ **Pros:**
+- Independent scaling per endpoint
+- Isolated deployments (update one function without affecting others)
+- Smaller deployment packages (faster cold starts)
+- Clear separation of concerns
+- Fine-grained IAM permissions per function
+
+❌ **Cons:**
+- More resources to manage (4 Lambda functions)
+- Potential code duplication across functions
+- Higher cold start impact (more functions = more potential cold starts)
+- More complex infrastructure code
+
+**Alternative: Monolithic Lambda**
+- Single Lambda handling all routes
+- Shared code and dependencies
+- One deployment unit
+- Better for small APIs with similar requirements
+
+**Why we chose Lambda per Endpoint:**
+For a library lending system, different endpoints have different characteristics:
+- `POST /books` - Write-heavy, needs validation
+- `GET /books` - Read-heavy, could benefit from caching
+- Checkout/Return - Different business logic and potential for different scaling patterns
+
+#### 2. **Single-Table Design vs Multiple Tables**
+
+**Current Choice: Single-Table Design (PK/SK pattern)**
+
+✅ **Pros:**
+- Cost-effective (one table = one billing unit)
+- Efficient for access patterns with relationships
+- Supports complex queries with composite keys
+- Better performance for related data fetches
+
+❌ **Cons:**
+- Steeper learning curve
+- Requires careful schema design upfront
+- Harder to query ad-hoc (not as flexible as SQL)
+- Potential for hot partitions if not designed well
+
+**Alternative: Table per Entity**
+- Simpler mental model (one table per concept)
+- Easier to understand for SQL developers
+- More flexible for querying
+
+**Why we chose Single-Table:**
+For a small-to-medium scale library system, single-table design is more cost-effective and performant. Our access patterns are well-defined (get by ID, list all, update status).
+
+#### 3. **Data Annotations vs FluentValidation**
+
+**Current Choice: Data Annotations**
+
+✅ **Pros:**
+- Built-in (no extra dependencies)
+- Simple and declarative
+- Easy to read and maintain
+- Good for straightforward validation rules
+
+❌ **Cons:**
+- Limited for complex validation logic
+- No conditional validation out-of-the-box
+- Harder to test validation rules in isolation
+- Can't easily inject dependencies
+
+**Alternative: FluentValidation**
+- More powerful and flexible
+- Better for complex business rules
+- Easier to test
+- Supports async validation
+
+**Why we chose Data Annotations:**
+Current validation needs are simple (required fields, string length). FluentValidation can be added later if validation becomes more complex.
+
+#### 4. **Constructor Injection vs Service Locator**
+
+**Current Choice: Constructor Injection**
+
+✅ **Pros:**
+- Dependencies are explicit
+- Easier to test (can inject mocks)
+- Compile-time safety
+- Follows SOLID principles
+
+❌ **Cons:**
+- Requires parameterless constructor for Lambda runtime
+- Need to maintain two constructors (production + testing)
+
+**Alternative: Service Locator Pattern**
+- Single constructor
+- Dependencies resolved at runtime
+- More flexible but less explicit
+
+**Why we chose Constructor Injection:**
+Better testability and clearer dependencies outweigh the minor inconvenience of maintaining two constructors. Lambda runtime uses the parameterless constructor, tests use the injected one.
+
+#### 5. **REST API vs GraphQL**
+
+**Current Choice: REST API**
+
+✅ **Pros:**
+- Simpler to implement and understand
+- Better caching support
+- Mature tooling and ecosystem
+- Standard HTTP status codes
+
+❌ **Cons:**
+- Over-fetching/under-fetching of data
+- Multiple round trips for related resources
+- Versioning challenges
+
+**Alternative: GraphQL**
+- Flexible data fetching
+- Single endpoint
+- Strong typing
+- Better for complex UIs
+
+**Why we chose REST:**
+For a simple CRUD API with well-defined endpoints, REST is sufficient and simpler. GraphQL adds complexity that's not needed for this use case.
+
+#### 6. **No Caching vs API Gateway/DAX Caching**
+
+**Current Choice: No Caching**
+
+✅ **Pros:**
+- Simpler architecture
+- Always fresh data
+- No cache invalidation complexity
+
+❌ **Cons:**
+- Higher DynamoDB read costs
+- Slower response times for read-heavy endpoints
+- More load on database
+
+**Alternative: Add Caching**
+- API Gateway caching (simple, managed)
+- DynamoDB DAX (in-memory cache)
+- Redis/ElastiCache (more control)
+
+**Why we chose No Caching:**
+Starting simple. Caching can be added later when performance metrics indicate it's needed. Premature optimization is avoided.
+
+#### 7. **Inline Lambda Code vs Separate Deployment**
+
+**Current Choice: Separate .NET Project + Deployment**
+
+✅ **Pros:**
+- Full .NET tooling support (IDE, debugging, testing)
+- Type safety and compile-time checks
+- Easy to add NuGet packages
+- Professional development experience
+
+❌ **Cons:**
+- Longer deployment times
+- Requires build/publish step
+- Larger deployment packages
+
+**Alternative: Inline Lambda Code**
+- Faster deployments for simple functions
+- No build step needed
+- Good for prototyping
+
+**Why we chose Separate Project:**
+For production-quality code with proper testing and maintainability, a full .NET project is essential. The deployment overhead is worth the development benefits.
 
 ### Best Practices & Future Improvements
 

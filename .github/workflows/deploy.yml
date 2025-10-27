@@ -36,6 +36,9 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
       
+      - name: Run Tests
+        run: make test
+      
       - name: Build Lambda functions
         run: make build
       
