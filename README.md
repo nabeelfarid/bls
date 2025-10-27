@@ -9,11 +9,39 @@ A serverless application built with AWS CDK that provides REST API endpoints for
 - `POST /books/{isbn}/checkout` – Check out a book
 - `POST /books/{isbn}/return` – Return a book
 
+## Request Validation
+
+All API requests are validated using Data Annotations. The following validations are enforced:
+
+### Book Model Validation Rules
+
+- **Title**: Required, must be between 1-500 characters
+- **Author**: Required, must be between 1-200 characters
+- **ISBN**: Required
+
+### Validation Error Response
+
+When validation fails, the API returns a `400 Bad Request` with error details:
+
+```json
+{
+  "errors": [
+    "Title is required",
+    "Author must be between 1 and 200 characters",
+    "ISBN is required"
+  ]
+}
+```
+
 ## Testing with Postman
 
 1. Import the `Books-Lending-Service.postman_collection.json` file into Postman
 2. Update the `baseUrl` variable in your Postman environment with your API Gateway URL
 3. Use the provided sample requests to test each endpoint
+
+The collection includes examples for:
+- ✅ Valid book creation
+- ❌ Validation errors (missing fields)
 
 ### Sample Book Data
 
@@ -57,7 +85,26 @@ This project includes a GitHub Actions workflow that automatically deploys to AW
 
 ### Setup Instructions
 
-1. **Create an IAM Role for GitHub Actions (OIDC)**
+1. **Create GitHub OIDC Provider in AWS (One-time Setup)**
+
+First, create the OIDC identity provider in AWS:
+
+**Option A: Using AWS Console**
+- Go to IAM → Identity providers → Add provider
+- Provider type: OpenID Connect
+- Provider URL: `https://token.actions.githubusercontent.com`
+- Audience: `sts.amazonaws.com`
+- Click "Add provider"
+
+**Option B: Using AWS CLI**
+```bash
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com \
+  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
+```
+
+2. **Create an IAM Role for GitHub Actions**
 
 Create an IAM role with the following trust policy:
 
@@ -87,47 +134,27 @@ Create an IAM role with the following trust policy:
 Attach the following AWS managed policies to the role:
 - `PowerUserAccess` (or create a custom policy with minimal required permissions)
 
-2. **Configure GitHub Secrets**
+3. **Configure GitHub Secrets**
 
 Go to your GitHub repository → Settings → Secrets and variables → Actions, and add:
 
 - `AWS_ROLE_ARN`: The ARN of the IAM role created above (e.g., `arn:aws:iam::123456789012:role/GitHubActionsRole`)
 - `AWS_REGION`: Your AWS region (e.g., `us-east-1`)
 
-3. **First-time Setup**
+4. **First-time Setup**
 
 If you haven't bootstrapped CDK yet, run manually:
 ```bash
 cdk bootstrap
 ```
 
-4. **Automatic Deployment**
+5. **Automatic Deployment**
 
 Once configured, every push to `main` will:
 - ✅ Build the Lambda functions
 - ✅ Synthesize the CDK stack
 - ✅ Deploy to AWS
 - ✅ Output the API Gateway URL
-
-### Alternative: Using AWS Access Keys (Not Recommended)
-
-If you prefer to use access keys instead of OIDC (less secure):
-
-1. Create an IAM user with programmatic access
-2. Add these secrets to GitHub:
-   - `AWS_ACCESS_KEY_ID`
-   - `AWS_SECRET_ACCESS_KEY`
-   - `AWS_REGION`
-
-3. Update `.github/workflows/deploy.yml` to use:
-```yaml
-- name: Configure AWS Credentials
-  uses: aws-actions/configure-aws-credentials@v4
-  with:
-    aws-access-key-id: ${{ secrets.AWS_ACCESS_KEY_ID }}
-    aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
-    aws-region: ${{ secrets.AWS_REGION }}
-```
 
 ## Architecture Decisions
 

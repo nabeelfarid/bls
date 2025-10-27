@@ -44,6 +44,24 @@ namespace BlsApi.Functions
 
                 var book = JsonSerializer.Deserialize<Book>(request.Body) ?? 
                     throw new InvalidOperationException("Failed to deserialize book from request body");
+                
+                // Validate the book object
+                var (isValid, errors) = ValidationHelper.Validate(book);
+                if (!isValid)
+                {
+                    context.Logger.LogWarning($"Validation failed: {string.Join(", ", errors)}");
+                    return new APIGatewayProxyResponse
+                    {
+                        StatusCode = 400,
+                        Body = JsonSerializer.Serialize(new { errors }),
+                        Headers = new Dictionary<string, string>
+                        {
+                            { "Content-Type", "application/json" },
+                            { "Access-Control-Allow-Origin", "*" }
+                        }
+                    };
+                }
+
                 book.Id = Guid.NewGuid().ToString();
                 book.IsCheckedOut = false;
 
@@ -62,9 +80,7 @@ namespace BlsApi.Functions
                     }
                 };
 
-                context.Logger.LogInformation($"Adding book to DynamoDB... {book.Id}", book);
                 await _dynamoDb.PutItemAsync(putRequest);
-                context.Logger.LogInformation($"Book added to DynamoDB: {book.Id}");
 
                 return new APIGatewayProxyResponse
                 {

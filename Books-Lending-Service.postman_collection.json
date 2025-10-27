@@ -25,7 +25,29 @@
 					"host": ["{{baseUrl}}"],
 					"path": ["books"]
 				},
-				"description": "Add a new book to the library"
+				"description": "Add a new book to the library. Returns 201 on success with the created book object."
+			}
+		},
+		{
+			"name": "Add Book - Validation Error (Missing Fields)",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"title\": \"\",\n    \"author\": \"\",\n    \"isbn\": \"\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/books",
+					"host": ["{{baseUrl}}"],
+					"path": ["books"]
+				},
+				"description": "Example of validation error when required fields are empty. Returns 400 with error messages."
 			}
 		},
 		{
