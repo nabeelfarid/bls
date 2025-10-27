@@ -35,21 +35,11 @@ namespace BlsApi.Functions
 
                 var book = JsonSerializer.Deserialize<Book>(request.Body ?? string.Empty);
                 
-                // Validate the book object
                 var (isValid, errors) = ValidationHelper.Validate(book);
                 if (!isValid)
                 {
                     context.Logger.LogWarning($"Validation failed: {string.Join(", ", errors)}");
-                    return new APIGatewayProxyResponse
-                    {
-                        StatusCode = 400,
-                        Body = JsonSerializer.Serialize(new { errors }),
-                        Headers = new Dictionary<string, string>
-                        {
-                            { "Content-Type", "application/json" },
-                            { "Access-Control-Allow-Origin", "*" }
-                        }
-                    };
+                    return ApiResponse.ValidationError(errors);
                 }
 
                 book.Id = Guid.NewGuid().ToString();
@@ -72,44 +62,17 @@ namespace BlsApi.Functions
 
                 await _dynamoDb.PutItemAsync(putRequest);
 
-                return new APIGatewayProxyResponse
-                {
-                    StatusCode = 201,
-                    Body = JsonSerializer.Serialize(book),
-                    Headers = new Dictionary<string, string>
-                    {
-                        { "Content-Type", "application/json" },
-                        { "Access-Control-Allow-Origin", "*" }
-                    }
-                };
+                return ApiResponse.Created(book);
             }
             catch (JsonException ex)
             {
                 context.Logger.LogWarning($"Invalid JSON format: {ex.Message}");
-                return new APIGatewayProxyResponse
-                {
-                    StatusCode = 400,
-                    Body = JsonSerializer.Serialize(new { error = "Invalid JSON format", details = ex.Message }),
-                    Headers = new Dictionary<string, string>
-                    {
-                        { "Content-Type", "application/json" },
-                        { "Access-Control-Allow-Origin", "*" }
-                    }
-                };
+                return ApiResponse.BadRequest($"Invalid JSON format: {ex.Message}");
             }
             catch (Exception ex)
             {
                 context.Logger.LogError($"Error: {ex.Message}");
-                return new APIGatewayProxyResponse
-                {
-                    StatusCode = 500,
-                    Body = JsonSerializer.Serialize(new { error = "Could not add book" }),
-                    Headers = new Dictionary<string, string>
-                    {
-                        { "Content-Type", "application/json" },
-                        { "Access-Control-Allow-Origin", "*" }
-                    }
-                };
+                return ApiResponse.InternalServerError("Could not add book");
             }
         }
     }

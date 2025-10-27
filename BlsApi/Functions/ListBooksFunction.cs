@@ -57,30 +57,12 @@ namespace BlsApi.Functions
                     });
                 }
 
-                return new APIGatewayProxyResponse
-                {
-                    StatusCode = 200,
-                    Body = JsonSerializer.Serialize(books),
-                    Headers = new Dictionary<string, string>
-                    {
-                        { "Content-Type", "application/json" },
-                        { "Access-Control-Allow-Origin", "*" }
-                    }
-                };
+                return ApiResponse.Success(books);
             }
             catch (Exception ex)
             {
                 context.Logger.LogError($"Error: {ex.Message}");
-                return new APIGatewayProxyResponse
-                {
-                    StatusCode = 500,
-                    Body = JsonSerializer.Serialize(new { error = "Could not retrieve books" }),
-                    Headers = new Dictionary<string, string>
-                    {
-                        { "Content-Type", "application/json" },
-                        { "Access-Control-Allow-Origin", "*" }
-                    }
-                };
+                return ApiResponse.InternalServerError("Could not retrieve books");
             }
         }
     }

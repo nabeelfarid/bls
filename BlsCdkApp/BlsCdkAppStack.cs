@@ -11,7 +11,6 @@ namespace BlsCdkApp
     {
         internal BlsCdkAppStack(Construct scope, string id, IStackProps props = null) : base(scope, id, props)
         {
-            // DynamoDB Table
             var table = new Table(this, "BooksTable", new TableProps
             {
                 TableName = "Books",
@@ -21,7 +20,6 @@ namespace BlsCdkApp
                 RemovalPolicy = RemovalPolicy.DESTROY
             });
 
-            // Lambda Functions
             var addBookFunction = new Function(this, "AddBookFunction", new FunctionProps
             {
                 Runtime = Runtime.DOTNET_8,
@@ -74,20 +72,17 @@ namespace BlsCdkApp
                 }
             });
 
-            // Grant DynamoDB permissions to Lambda functions
             table.GrantReadWriteData(addBookFunction);
             table.GrantReadWriteData(listBooksFunction);
             table.GrantReadWriteData(checkoutBookFunction);
             table.GrantReadWriteData(returnBookFunction);
 
-            // API Gateway
             var api = new RestApi(this, "BooksApi", new RestApiProps
             {
                 RestApiName = "Books Lending Service",
                 Description = "This is the Books Lending Service API"
             });
 
-            // API Resources and Methods
             var books = api.Root.AddResource("books");
             books.AddMethod("POST", new LambdaIntegration(addBookFunction));
             books.AddMethod("GET", new LambdaIntegration(listBooksFunction));

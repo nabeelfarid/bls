@@ -1,5 +1,5 @@
 using System;
-using System.Text.Json;
+using System.Collections.Generic;
 using System.Threading.Tasks;
 using Amazon.DynamoDBv2;
 using Amazon.DynamoDBv2.Model;
@@ -51,43 +51,16 @@ namespace BlsApi.Functions
 
                 await _dynamoDb.UpdateItemAsync(updateRequest);
 
-                return new APIGatewayProxyResponse
-                {
-                    StatusCode = 200,
-                    Body = JsonSerializer.Serialize(new { message = "Book returned successfully" }),
-                    Headers = new Dictionary<string, string>
-                    {
-                        { "Content-Type", "application/json" },
-                        { "Access-Control-Allow-Origin", "*" }
-                    }
-                };
+                return ApiResponse.SuccessMessage("Book returned successfully");
             }
             catch (ConditionalCheckFailedException)
             {
-                return new APIGatewayProxyResponse
-                {
-                    StatusCode = 400,
-                    Body = JsonSerializer.Serialize(new { error = "Book is not checked out or does not exist" }),
-                    Headers = new Dictionary<string, string>
-                    {
-                        { "Content-Type", "application/json" },
-                        { "Access-Control-Allow-Origin", "*" }
-                    }
-                };
+                return ApiResponse.BadRequest("Book is not checked out or does not exist");
             }
             catch (Exception ex)
             {
                 context.Logger.LogError($"Error: {ex.Message}");
-                return new APIGatewayProxyResponse
-                {
-                    StatusCode = 500,
-                    Body = JsonSerializer.Serialize(new { error = "Could not return book" }),
-                    Headers = new Dictionary<string, string>
-                    {
-                        { "Content-Type", "application/json" },
-                        { "Access-Control-Allow-Origin", "*" }
-                    }
-                };
+                return ApiResponse.InternalServerError("Could not return book");
             }
         }
     }
