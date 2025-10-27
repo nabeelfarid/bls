@@ -27,6 +27,8 @@ namespace BlsCdkApp
                 Runtime = Runtime.DOTNET_8,
                 Handler = "BlsApi::BlsApi.Functions.AddBookFunction::Handler",
                 Code = Code.FromAsset("BlsApi/bin/Release/net8.0/publish"),
+                Timeout = Duration.Seconds(30),
+                MemorySize = 512,
                 Environment = new Dictionary<string, string>
                 {
                     { "TABLE_NAME", table.TableName }
@@ -38,6 +40,8 @@ namespace BlsCdkApp
                 Runtime = Runtime.DOTNET_8,
                 Handler = "BlsApi::BlsApi.Functions.ListBooksFunction::Handler",
                 Code = Code.FromAsset("BlsApi/bin/Release/net8.0/publish"),
+                Timeout = Duration.Seconds(30),
+                MemorySize = 512,
                 Environment = new Dictionary<string, string>
                 {
                     { "TABLE_NAME", table.TableName }
@@ -49,6 +53,8 @@ namespace BlsCdkApp
                 Runtime = Runtime.DOTNET_8,
                 Handler = "BlsApi::BlsApi.Functions.CheckoutBookFunction::Handler",
                 Code = Code.FromAsset("BlsApi/bin/Release/net8.0/publish"),
+                Timeout = Duration.Seconds(30),
+                MemorySize = 512,
                 Environment = new Dictionary<string, string>
                 {
                     { "TABLE_NAME", table.TableName }
@@ -60,6 +66,8 @@ namespace BlsCdkApp
                 Runtime = Runtime.DOTNET_8,
                 Handler = "BlsApi::BlsApi.Functions.ReturnBookFunction::Handler",
                 Code = Code.FromAsset("BlsApi/bin/Release/net8.0/publish"),
+                Timeout = Duration.Seconds(30),
+                MemorySize = 512,
                 Environment = new Dictionary<string, string>
                 {
                     { "TABLE_NAME", table.TableName }

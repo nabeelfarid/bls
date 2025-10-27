@@ -66,7 +66,9 @@ namespace BlsApi.Functions
                     }
                 };
 
+                context.Logger.LogInformation($"Adding book to DynamoDB... {book.Id}", book);
                 await _dynamoDb.PutItemAsync(putRequest);
+                context.Logger.LogInformation($"Book added to DynamoDB: {book.Id}");
 
                 return new APIGatewayProxyResponse
                 {
