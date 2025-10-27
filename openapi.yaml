@@ -1,0 +1,422 @@
+openapi: 3.0.3
+info:
+  title: Books Lending Service API
+  description: |
+    A serverless REST API for managing a library's book lending system.
+    
+    Built with AWS CDK, Lambda, API Gateway, and DynamoDB.
+    
+    ## Features
+    - Add new books to the library
+    - List all books with availability status
+    - Check out books
+    - Return books
+    
+    ## Authentication
+    Currently, this API does not require authentication (public endpoints).
+    
+    ## Rate Limiting
+    API Gateway default throttling limits apply (10,000 requests per second per region).
+    
+  version: 1.0.0
+  contact:
+    name: API Support
+    url: https://github.com/nabeelfarid/bls
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: https://your-api-id.execute-api.us-east-1.amazonaws.com/prod
+    description: Production server (replace with your API Gateway URL)
+
+tags:
+  - name: Books
+    description: Book management operations
+  - name: Checkout
+    description: Book checkout and return operations
+
+paths:
+  /books:
+    post:
+      tags:
+        - Books
+      summary: Add a new book
+      description: |
+        Creates a new book in the library system.
+        
+        **Validation Rules:**
+        - Title: Required, 1-500 characters
+        - Author: Required, 1-200 characters
+        - ISBN: Required
+        
+        A unique ID is automatically generated for each book.
+      operationId: addBook
+      security: []
+      requestBody:
+        required: true
+        description: Book details to add
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BookInput'
+            examples:
+              validBook:
+                summary: Valid book example
+                value:
+                  title: "The Pragmatic Programmer"
+                  author: "David Thomas, Andrew Hunt"
+                  isbn: "978-0135957059"
+              anotherBook:
+                summary: Another valid book
+                value:
+                  title: "Clean Code"
+                  author: "Robert C. Martin"
+                  isbn: "978-0132350884"
+      responses:
+        '201':
+          description: Book created successfully
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+                example: "*"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Book'
+              examples:
+                success:
+                  summary: Successful creation
+                  value:
+                    id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                    title: "The Pragmatic Programmer"
+                    author: "David Thomas, Andrew Hunt"
+                    isbn: "978-0135957059"
+                    isCheckedOut: false
+        '400':
+          description: Invalid input or validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationError'
+              examples:
+                missingFields:
+                  summary: Missing required fields
+                  value:
+                    errors:
+                      - "Title is required"
+                      - "Author is required"
+                      - "ISBN is required"
+                titleTooLong:
+                  summary: Title exceeds maximum length
+                  value:
+                    errors:
+                      - "Title must be between 1 and 500 characters"
+                invalidJson:
+                  summary: Invalid JSON format
+                  value:
+                    errors:
+                      - "Invalid JSON format: Unexpected character at position 42"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                serverError:
+                  summary: Server error
+                  value:
+                    error: "Could not add book"
+
+    get:
+      tags:
+        - Books
+      summary: List all books
+      description: |
+        Retrieves a list of all books in the library.
+        
+        Returns an array of books with their current checkout status.
+        Books are not paginated in the current version.
+      operationId: listBooks
+      security: []
+      responses:
+        '200':
+          description: List of books retrieved successfully
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+                example: "*"
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Book'
+              examples:
+                withBooks:
+                  summary: Library with books
+                  value:
+                    - id: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+                      title: "The Pragmatic Programmer"
+                      author: "David Thomas, Andrew Hunt"
+                      isbn: "978-0135957059"
+                      isCheckedOut: false
+                    - id: "b2c3d4e5-f6a7-8901-bcde-f12345678901"
+                      title: "Clean Code"
+                      author: "Robert C. Martin"
+                      isbn: "978-0132350884"
+                      isCheckedOut: true
+                emptyLibrary:
+                  summary: Empty library
+                  value: []
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                serverError:
+                  summary: Server error
+                  value:
+                    error: "Could not retrieve books"
+
+  /books/{id}/checkout:
+    post:
+      tags:
+        - Checkout
+      summary: Check out a book
+      description: |
+        Marks a book as checked out.
+        
+        **Business Rules:**
+        - Book must exist
+        - Book must not already be checked out
+        
+        Uses optimistic locking with DynamoDB conditional expressions to prevent race conditions.
+      operationId: checkoutBook
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique book identifier (UUID)
+          schema:
+            type: string
+            format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+      responses:
+        '200':
+          description: Book checked out successfully
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+                example: "*"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+              examples:
+                success:
+                  summary: Successful checkout
+                  value:
+                    message: "Book checked out successfully"
+        '400':
+          description: Book is already checked out or does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                alreadyCheckedOut:
+                  summary: Book already checked out
+                  value:
+                    error: "Book is already checked out or does not exist"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                serverError:
+                  summary: Server error
+                  value:
+                    error: "Could not checkout book"
+
+  /books/{id}/return:
+    post:
+      tags:
+        - Checkout
+      summary: Return a book
+      description: |
+        Marks a book as returned (available).
+        
+        **Business Rules:**
+        - Book must exist
+        - Book must be currently checked out
+        
+        Uses optimistic locking with DynamoDB conditional expressions to prevent race conditions.
+      operationId: returnBook
+      security: []
+      parameters:
+        - name: id
+          in: path
+          required: true
+          description: Unique book identifier (UUID)
+          schema:
+            type: string
+            format: uuid
+          example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+      responses:
+        '200':
+          description: Book returned successfully
+          headers:
+            Access-Control-Allow-Origin:
+              schema:
+                type: string
+                example: "*"
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SuccessMessage'
+              examples:
+                success:
+                  summary: Successful return
+                  value:
+                    message: "Book returned successfully"
+        '400':
+          description: Book is not checked out or does not exist
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                notCheckedOut:
+                  summary: Book not checked out
+                  value:
+                    error: "Book is not checked out or does not exist"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+              examples:
+                serverError:
+                  summary: Server error
+                  value:
+                    error: "Could not return book"
+
+components:
+  schemas:
+    BookInput:
+      type: object
+      required:
+        - title
+        - author
+        - isbn
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: The title of the book
+          example: "The Pragmatic Programmer"
+        author:
+          type: string
+          minLength: 1
+          maxLength: 200
+          description: The author(s) of the book
+          example: "David Thomas, Andrew Hunt"
+        isbn:
+          type: string
+          description: |
+            International Standard Book Number (ISBN).
+            Can be ISBN-10 or ISBN-13 format.
+          example: "978-0135957059"
+      description: Input schema for creating a new book
+
+    Book:
+      allOf:
+        - $ref: '#/components/schemas/BookInput'
+        - type: object
+          required:
+            - id
+            - isCheckedOut
+          properties:
+            id:
+              type: string
+              format: uuid
+              description: Unique book identifier (auto-generated)
+              example: "a1b2c3d4-e5f6-7890-abcd-ef1234567890"
+              readOnly: true
+            isCheckedOut:
+              type: boolean
+              description: Whether the book is currently checked out
+              default: false
+              example: false
+      description: Complete book entity with all fields
+
+    SuccessMessage:
+      type: object
+      required:
+        - message
+      properties:
+        message:
+          type: string
+          description: Success message
+          example: "Operation completed successfully"
+      description: Generic success response
+
+    Error:
+      type: object
+      required:
+        - error
+      properties:
+        error:
+          type: string
+          description: Error message describing what went wrong
+          example: "Could not complete the operation"
+        details:
+          type: string
+          description: Additional error details (optional)
+          example: "DynamoDB connection timeout"
+      description: Error response for 4xx and 5xx status codes
+
+    ValidationError:
+      type: object
+      required:
+        - errors
+      properties:
+        errors:
+          type: array
+          items:
+            type: string
+          description: List of validation error messages
+          minItems: 1
+          example:
+            - "Title is required"
+            - "Author must be between 1 and 200 characters"
+      description: Validation error response with detailed error messages
+
+  securitySchemes:
+    # Placeholder for future authentication
+    apiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: API key for authentication (not currently implemented)
+
+# Security is commented out as the API is currently public
+# security:
+#   - apiKeyAuth: []
+
+externalDocs:
+  description: GitHub Repository
+  url: https://github.com/nabeelfarid/bls
+

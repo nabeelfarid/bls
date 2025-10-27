@@ -42,7 +42,81 @@ Returns `400 Bad Request` when validation fails:
 }
 ```
 
+## API Documentation
+
+This project includes a comprehensive **OpenAPI 3.0** specification in `openapi.yaml`.
+
+### 📚 View Interactive Documentation
+
+**Option 1: Swagger UI (Local)**
+```bash
+# Install Swagger UI viewer
+npm install -g swagger-ui-watcher
+
+# View the documentation (opens in browser)
+swagger-ui-watcher openapi.yaml
+```
+
+**Option 2: Swagger Editor (Online)**
+1. Go to [https://editor.swagger.io/](https://editor.swagger.io/)
+2. Click **File → Import file**
+3. Upload `openapi.yaml`
+4. View and interact with your API documentation
+
+**Option 3: VS Code Extension**
+- Install the **"OpenAPI (Swagger) Editor"** extension
+- Open `openapi.yaml` in VS Code
+- Right-click → **Preview Swagger**
+
+**Option 4: Redoc (Beautiful Documentation)**
+```bash
+npx @redocly/cli preview-docs openapi.yaml
+```
+
+### 📖 What's Included
+
+The OpenAPI spec documents:
+
+✅ All 4 API endpoints with detailed descriptions  
+✅ Request/response schemas with examples  
+✅ Validation rules (required fields, min/max lengths)  
+✅ HTTP status codes (200, 201, 400, 500)  
+✅ Business rules and constraints  
+✅ Error response formats  
+✅ Multiple examples for each endpoint  
+
+### 🔄 Keeping Documentation in Sync
+
+After making changes to your API:
+
+1. Update `openapi.yaml` manually, or
+2. Generate it from API Gateway (after deployment):
+   ```bash
+   # Get API ID from CloudFormation outputs
+   aws cloudformation describe-stacks \
+     --stack-name BlsCdkAppStack \
+     --query 'Stacks[0].Outputs[?OutputKey==`BooksApiEndpoint*`]'
+   
+   # Export OpenAPI spec
+   aws apigateway get-export \
+     --rest-api-id YOUR_API_ID \
+     --stage-name prod \
+     --export-type oas30 \
+     --accepts application/yaml \
+     openapi-generated.yaml
+   ```
+
 ## Testing with Postman
+
+### Import OpenAPI Spec
+
+**Recommended:** Import the OpenAPI spec directly into Postman:
+```
+File → Import → openapi.yaml
+```
+Postman will auto-generate a collection with all endpoints and examples.
+
+### Or Use Postman Collection
 
 1. Import the `Books-Lending-Service.postman_collection.json` file into Postman
 2. Update the `baseUrl` variable in your Postman environment with your API Gateway URL
