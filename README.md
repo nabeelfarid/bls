@@ -88,57 +88,26 @@ dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
 
 #### Test Suite Overview
 
-The project includes **18 unit tests** using **xUnit**, **Moq**, and **FluentAssertions**:
+The project includes **38 unit tests** using **xUnit**, **Moq**, and **FluentAssertions**:
 
 **Test Structure:**
 ```
 BlsApi.Tests/
 ├── Functions/
-│   └── AddBookFunctionTests.cs      # Tests for AddBookFunction Lambda handler
+│   ├── AddBookFunctionTests.cs       # Tests for AddBookFunction (11 tests)
+│   ├── ListBooksFunctionTests.cs     # Tests for ListBooksFunction (7 tests)
+│   ├── CheckoutBookFunctionTests.cs  # Tests for CheckoutBookFunction (7 tests)
+│   └── ReturnBookFunctionTests.cs    # Tests for ReturnBookFunction (6 tests)
 └── Utils/
-    └── ValidationHelperTests.cs      # Tests for validation logic
+    └── ValidationHelperTests.cs      # Tests for validation logic (7 tests)
 ```
 
-**AddBookFunctionTests** (11 tests):
-- ✅ Valid book creation returns 201
-- ✅ Empty/null body returns 400
-- ✅ Invalid JSON returns 400
-- ✅ Missing required fields returns 400 with validation errors
-- ✅ DynamoDB failures return 500
-- ✅ Correct DynamoDB keys (PK/SK) are set
-- ✅ CORS headers are included
-
-**ValidationHelperTests** (7 tests):
-- ✅ Valid book passes validation
-- ✅ Empty/missing title fails validation
-- ✅ Empty/missing author fails validation
-- ✅ Empty/missing ISBN fails validation
-- ✅ Title/Author too long fails validation
-- ✅ Null object fails validation
-- ✅ Multiple validation errors are returned
-
-**Example Test:**
-```csharp
-[Fact]
-public async Task Handler_WithValidBook_ShouldReturn201()
-{
-    // Arrange
-    var mockDynamoDb = new Mock<IAmazonDynamoDB>();
-    mockDynamoDb
-        .Setup(x => x.PutItemAsync(It.IsAny<PutItemRequest>(), default))
-        .ReturnsAsync(new PutItemResponse { HttpStatusCode = HttpStatusCode.OK });
-
-    var function = new AddBookFunction(mockDynamoDb.Object);
-    var request = new APIGatewayProxyRequest { Body = "..." };
-
-    // Act
-    var response = await function.Handler(request, context);
-
-    // Assert
-    response.StatusCode.Should().Be(201);
-    mockDynamoDb.Verify(x => x.PutItemAsync(...), Times.Once);
-}
-```
+**Test Coverage:**
+- ✅ **AddBookFunction**: Valid book creation, validation errors, JSON parsing, DynamoDB failures, CORS, key structure
+- ✅ **ListBooksFunction**: List books, empty list, scan filters, missing attributes, DynamoDB failures, CORS
+- ✅ **CheckoutBookFunction**: Checkout available book, already checked out, non-existent book, DynamoDB operations, CORS
+- ✅ **ReturnBookFunction**: Return book, not checked out error, non-existent book, DynamoDB operations, CORS
+- ✅ **ValidationHelper**: Field validation, length validation, null handling, multiple errors
 
 **Testing Best Practices:**
 1. **Follow AAA Pattern**: Arrange, Act, Assert
@@ -274,7 +243,7 @@ Once configured, every push to `main` will:
 - Higher cold start impact (more functions = more potential cold starts)
 - More complex infrastructure code
 
-**Alternative: Monolithic Lambda**
+**Alternative: Monolithic Lambda**  
 - Single Lambda handling all routes
 - Shared code and dependencies
 - One deployment unit
@@ -417,11 +386,6 @@ Starting simple. Caching can be added later when performance metrics indicate it
 - Longer deployment times
 - Requires build/publish step
 - Larger deployment packages
-
-**Alternative: Inline Lambda Code**
-- Faster deployments for simple functions
-- No build step needed
-- Good for prototyping
 
 **Why we chose Separate Project:**
 For production-quality code with proper testing and maintainability, a full .NET project is essential. The deployment overhead is worth the development benefits.

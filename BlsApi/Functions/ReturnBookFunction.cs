@@ -12,11 +12,16 @@ namespace BlsApi.Functions
     public class ReturnBookFunction
     {
         private readonly IAmazonDynamoDB _dynamoDb;
-        private readonly string _tableName = Environment.GetEnvironmentVariable("TABLE_NAME") ?? throw new InvalidOperationException("TABLE_NAME environment variable is not set");
+        private readonly string _tableName;
 
-        public ReturnBookFunction()
+        public ReturnBookFunction() : this(new AmazonDynamoDBClient())
         {
-            _dynamoDb = new AmazonDynamoDBClient();
+        }
+
+        public ReturnBookFunction(IAmazonDynamoDB dynamoDb)
+        {
+            _dynamoDb = dynamoDb;
+            _tableName = Environment.GetEnvironmentVariable("TABLE_NAME") ?? throw new InvalidOperationException("TABLE_NAME environment variable is not set");
         }
 
         public async Task<APIGatewayProxyResponse> Handler(APIGatewayProxyRequest request, ILambdaContext context)

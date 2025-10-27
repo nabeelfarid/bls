@@ -164,7 +164,7 @@ namespace BlsApi.Tests.Functions
 
             // Assert
             response.StatusCode.Should().Be(400);
-            response.Body.Should().Contain("Invalid JSON format!");
+            response.Body.Should().Contain("Invalid JSON format");
         }
 
         [Fact]

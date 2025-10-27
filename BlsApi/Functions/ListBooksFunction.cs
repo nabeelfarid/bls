@@ -14,11 +14,16 @@ namespace BlsApi.Functions
     public class ListBooksFunction
     {
         private readonly IAmazonDynamoDB _dynamoDb;
-        private readonly string _tableName = Environment.GetEnvironmentVariable("TABLE_NAME") ?? throw new InvalidOperationException("TABLE_NAME environment variable is not set");
+        private readonly string _tableName;
 
-        public ListBooksFunction()
+        public ListBooksFunction() : this(new AmazonDynamoDBClient())
         {
-            _dynamoDb = new AmazonDynamoDBClient();
+        }
+
+        public ListBooksFunction(IAmazonDynamoDB dynamoDb)
+        {
+            _dynamoDb = dynamoDb;
+            _tableName = Environment.GetEnvironmentVariable("TABLE_NAME") ?? throw new InvalidOperationException("TABLE_NAME environment variable is not set");
         }
 
         public async Task<APIGatewayProxyResponse> Handler(APIGatewayProxyRequest request, ILambdaContext context)
@@ -48,7 +53,7 @@ namespace BlsApi.Functions
                         Title = item["Title"].S,
                         Author = item["Author"].S,
                         ISBN = item["ISBN"].S,
-                        IsCheckedOut = item["IsCheckedOut"]?.BOOL ?? false
+                        IsCheckedOut = item.ContainsKey("IsCheckedOut") && (item["IsCheckedOut"].BOOL ?? false)
                     });
                 }
 
