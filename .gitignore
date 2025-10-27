@@ -1,0 +1,17 @@
+# CDK
+cdk.out/
+
+# .NET
+bin/
+obj/
+*.user
+*.suo
+*.userosscache
+*.sln.docstates
+
+# VS Code
+.vscode/
+.vs/
+
+# macOS
+.DS_Store
