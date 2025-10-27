@@ -28,22 +28,7 @@ namespace BlsApi.Functions
             {
                 RequestLogger.LogRequest(request, context);
 
-                if (string.IsNullOrEmpty(request.Body))
-                {
-                    return new APIGatewayProxyResponse
-                    {
-                        StatusCode = 400,
-                        Body = JsonSerializer.Serialize(new { error = "Request body is required" }),
-                        Headers = new Dictionary<string, string>
-                        {
-                            { "Content-Type", "application/json" },
-                            { "Access-Control-Allow-Origin", "*" }
-                        }
-                    };
-                }
-
-                var book = JsonSerializer.Deserialize<Book>(request.Body) ?? 
-                    throw new InvalidOperationException("Failed to deserialize book from request body");
+                var book = JsonSerializer.Deserialize<Book>(request.Body);
                 
                 // Validate the book object
                 var (isValid, errors) = ValidationHelper.Validate(book);
@@ -86,6 +71,20 @@ namespace BlsApi.Functions
                 {
                     StatusCode = 201,
                     Body = JsonSerializer.Serialize(book),
+                    Headers = new Dictionary<string, string>
+                    {
+                        { "Content-Type", "application/json" },
+                        { "Access-Control-Allow-Origin", "*" }
+                    }
+                };
+            }
+            catch (JsonException ex)
+            {
+                context.Logger.LogWarning($"Invalid JSON format: {ex.Message}");
+                return new APIGatewayProxyResponse
+                {
+                    StatusCode = 400,
+                    Body = JsonSerializer.Serialize(new { error = "Invalid JSON format", details = ex.Message }),
                     Headers = new Dictionary<string, string>
                     {
                         { "Content-Type", "application/json" },

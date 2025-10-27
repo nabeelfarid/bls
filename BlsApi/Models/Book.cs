@@ -12,16 +12,16 @@ namespace BlsApi.Models
         [JsonPropertyName("title")]
         [Required(ErrorMessage = "Title is required")]
         [StringLength(500, MinimumLength = 1, ErrorMessage = "Title must be between 1 and 500 characters")]
-        public required string Title { get; set; }
+        public string Title { get; set; } = string.Empty;
         
         [JsonPropertyName("author")]
         [Required(ErrorMessage = "Author is required")]
         [StringLength(200, MinimumLength = 1, ErrorMessage = "Author must be between 1 and 200 characters")]
-        public required string Author { get; set; }
+        public string Author { get; set; } = string.Empty;
         
         [JsonPropertyName("isbn")]
         [Required(ErrorMessage = "ISBN is required")]
-        public required string ISBN { get; set; }
+        public string ISBN { get; set; } = string.Empty;
         
         [JsonPropertyName("isCheckedOut")]
         public bool IsCheckedOut { get; set; } = false;

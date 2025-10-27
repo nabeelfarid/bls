@@ -19,10 +19,19 @@ All API requests are validated using Data Annotations. The following validations
 - **Author**: Required, must be between 1-200 characters
 - **ISBN**: Required
 
-### Validation Error Response
+### Error Responses
 
-When validation fails, the API returns a `400 Bad Request` with error details:
+**Invalid JSON Format:**
+Returns `400 Bad Request` when JSON is malformed:
+```json
+{
+  "error": "Invalid JSON format",
+  "details": "..."
+}
+```
 
+**Validation Errors:**
+Returns `400 Bad Request` when validation fails:
 ```json
 {
   "errors": [
@@ -156,7 +165,7 @@ Once configured, every push to `main` will:
 - ✅ Deploy to AWS
 - ✅ Output the API Gateway URL
 
-## Architecture Decisions
+## Architecture and Design Decisions
 
 ### Current Implementation
 
@@ -165,6 +174,7 @@ Once configured, every push to `main` will:
 - **Single-Table Design**: DynamoDB with composite keys (PK/SK) for flexible data modeling
 - **Lambda per Endpoint**: Each API endpoint has its own Lambda function for independent scaling and deployment
 - **Request Logging**: Centralized `RequestLogger` utility for consistent logging across all handlers
+- **Request Validation**: Data Annotations with `ValidationHelper` utility for input validation
 - **JSON Serialization**: Lowercase property names for REST API convention compliance
 
 ### Best Practices & Future Improvements
@@ -213,7 +223,52 @@ dotnet add package AWS.Lambda.Powertools.Metrics
 - Wrap handlers with decorators for logging, validation, etc.
 - More flexible but adds complexity
 
-#### 3. **Additional Best Practices**
+#### 3. **Validation**
+
+**Current Approach:** Data Annotations
+- ✅ Built-in .NET feature (no extra dependencies)
+- ✅ Simple attribute-based validation
+- ✅ Good for basic validation rules
+- ✅ Easy to read and maintain
+
+**Alternative: FluentValidation** (for complex scenarios)
+```bash
+dotnet add package FluentValidation
+```
+
+```csharp
+public class BookValidator : AbstractValidator<Book>
+{
+    public BookValidator()
+    {
+        RuleFor(x => x.Title)
+            .NotEmpty()
+            .MaximumLength(500)
+            .WithMessage("Title must be between 1 and 500 characters");
+        
+        RuleFor(x => x.ISBN)
+            .NotEmpty()
+            .Must(BeValidISBN)
+            .WithMessage("Invalid ISBN format");
+    }
+    
+    private bool BeValidISBN(string isbn)
+    {
+        // Custom validation logic
+        return true;
+    }
+}
+```
+
+**When to Use FluentValidation:**
+- Complex validation rules
+- Conditional validation (validate X only if Y is true)
+- Cross-field validation
+- Custom validators that need dependency injection
+- Async validation (e.g., checking database for uniqueness)
+- Reusable validation rules across multiple models
+
+#### 4. **Additional Best Practices**
 
 **API Gateway:**
 - Add request validation at API Gateway level
