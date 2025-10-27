@@ -24,6 +24,12 @@ namespace BlsApi.Functions
         {
             try
             {
+                // Log the incoming request
+                context.Logger.LogInformation($"Request Path: {request.Path}");
+                context.Logger.LogInformation($"Request Method: {request.HttpMethod}");
+                context.Logger.LogInformation($"Path Parameters: {JsonSerializer.Serialize(request.PathParameters)}");
+                context.Logger.LogInformation($"Query String Parameters: {JsonSerializer.Serialize(request.QueryStringParameters)}");
+
                 var scanRequest = new ScanRequest
                 {
                     TableName = _tableName,

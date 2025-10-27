@@ -25,6 +25,13 @@ namespace BlsApi.Functions
         {
             try
             {
+                // Log the incoming request
+                context.Logger.LogInformation($"Request Path: {request.Path}");
+                context.Logger.LogInformation($"Request Method: {request.HttpMethod}");
+                context.Logger.LogInformation($"Request Body: {request.Body}");
+                context.Logger.LogInformation($"Path Parameters: {JsonSerializer.Serialize(request.PathParameters)}");
+                context.Logger.LogInformation($"Query String Parameters: {JsonSerializer.Serialize(request.QueryStringParameters)}");
+
                 if (string.IsNullOrEmpty(request.Body))
                 {
                     return new APIGatewayProxyResponse
