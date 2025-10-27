@@ -1,0 +1,79 @@
+{
+	"info": {
+		"_postman_id": "b0b0b0b0-b0b0-b0b0-b0b0-b0b0b0b0b0b0",
+		"name": "Books Lending Service",
+		"description": "A collection of API endpoints for the Books Lending Service",
+		"schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+	},
+	"item": [
+		{
+			"name": "Add Book",
+			"request": {
+				"method": "POST",
+				"header": [
+					{
+						"key": "Content-Type",
+						"value": "application/json"
+					}
+				],
+				"body": {
+					"mode": "raw",
+					"raw": "{\n    \"title\": \"The Pragmatic Programmer\",\n    \"author\": \"David Thomas, Andrew Hunt\",\n    \"isbn\": \"978-0135957059\"\n}"
+				},
+				"url": {
+					"raw": "{{baseUrl}}/books",
+					"host": ["{{baseUrl}}"],
+					"path": ["books"]
+				},
+				"description": "Add a new book to the library"
+			}
+		},
+		{
+			"name": "List Books",
+			"request": {
+				"method": "GET",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/books",
+					"host": ["{{baseUrl}}"],
+					"path": ["books"]
+				},
+				"description": "Get a list of all books in the library"
+			}
+		},
+		{
+			"name": "Checkout Book",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/books/978-0135957059/checkout",
+					"host": ["{{baseUrl}}"],
+					"path": ["books", "978-0135957059", "checkout"]
+				},
+				"description": "Check out a book from the library"
+			}
+		},
+		{
+			"name": "Return Book",
+			"request": {
+				"method": "POST",
+				"header": [],
+				"url": {
+					"raw": "{{baseUrl}}/books/978-0135957059/return",
+					"host": ["{{baseUrl}}"],
+					"path": ["books", "978-0135957059", "return"]
+				},
+				"description": "Return a book to the library"
+			}
+		}
+	],
+	"variable": [
+		{
+			"key": "baseUrl",
+			"value": "https://your-api-gateway-url.execute-api.region.amazonaws.com/prod",
+			"type": "string",
+			"description": "The base URL for the API Gateway endpoint. Replace with your actual API Gateway URL after deployment."
+		}
+	]
+}
