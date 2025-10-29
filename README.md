@@ -5,7 +5,7 @@ A .NET 8 Web API for managing a library's book lending system. The application r
 ### Key Features
 
 - ✅ **.NET 8 Web API development**
-- ✅ **Local development** with `dotnet run` or `make run-local`
+- ✅ **Solution run locally** with `dotnet run`
 - ✅ **IaC - Deploys to AWS** using CDK (CloudFormation stack) seamlessly (same codebase!)
 - ✅ **Swagger/OpenAPI** documentation at `/swagger`
 - ✅ **Local & AWS DynamoDB** support (switch via configuration)
@@ -830,7 +830,7 @@ This project was originally Lambda-only. Here's what was improved:
 ❌ Could not run locally with `dotnet run`
 ❌ Required AWS for testing
 ❌ No Swagger documentation
-❌ Lambda functions only
+❌ Separate Lambda functions for each endpoint
 ```
 
 ### After (Web API + Lambda)
@@ -840,8 +840,7 @@ This project was originally Lambda-only. Here's what was improved:
 ✅ Same code works locally AND in Lambda
 ✅ Service layer for clean architecture
 ✅ Configuration-based DynamoDB switching
-✅ Multiple deployment scripts
-✅ CI/CD ready
+✅ Single Lambda handling all endpoints via API Gateway proxy integration
 ```
 
 ### Migration Summary
