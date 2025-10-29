@@ -47,6 +47,14 @@ A .NET 8 Web API for managing a library's book lending system. The application r
 - **Mac/Linux**: Bash shell (default)
 - **Windows**: PowerShell 5.1+ (default) or [Git Bash](https://git-scm.com/downloads)
 
+### Clone the Repository
+
+```bash
+# Clone the repository
+git clone https://github.com/nabeelfarid/BLS.git
+cd BLS
+```
+
 ### Local Dev Setup
 
 ```bash
