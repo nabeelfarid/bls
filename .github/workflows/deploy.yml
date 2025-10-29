@@ -37,14 +37,17 @@ jobs:
           role-to-assume: ${{ secrets.AWS_ROLE_ARN }}
           aws-region: ${{ secrets.AWS_REGION }}
       
+      - name: Restore NuGet Packages
+        run: dotnet restore Bls.sln
+      
+      - name: Build Solution
+        run: dotnet build Bls.sln -c Release
+      
       - name: Run Tests
-        run: dotnet test --verbosity normal
+        run: dotnet test Bls.sln --no-build -c Release --verbosity normal
       
       - name: Publish Web API
-        run: dotnet publish BlsApi/BlsApi.csproj -c Release
-      
-      - name: Build CDK App
-        run: dotnet build BlsCdkApp/BlsCdkApp.csproj
+        run: dotnet publish BlsApi/BlsApi.csproj -c Release --no-build
       
       - name: CDK Synth
         run: cdk synth

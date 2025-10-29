@@ -26,10 +26,10 @@ restore:
 
 # Build and publish the API for deployment
 build:
+	@echo "🔨 Building solution..."
+	dotnet build Bls.sln -c Release
 	@echo "🔨 Publishing Books Lending Service API..."
 	dotnet publish BlsApi/BlsApi.csproj -c Release
-	@echo "🔨 Building CDK App for Books Lending Service API..."
-	dotnet build BlsCdkApp/BlsCdkApp.csproj
 
 # Run all tests
 test:

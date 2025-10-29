@@ -44,12 +44,18 @@ A .NET 8 Web API for managing a library's book lending system. The application r
 - [Docker](https://www.docker.com/get-started) (for local DynamoDB)
 - [AWS CLI](https://aws.amazon.com/cli/) (for DynamoDB setup)
 - [AWS CDK](https://docs.aws.amazon.com/cdk/) (optional, for AWS deployment)
+- **Mac/Linux**: Bash shell (default)
+- **Windows**: PowerShell 5.1+ (default) or [Git Bash](https://git-scm.com/downloads)
 
 ### Local Dev Setup
 
 ```bash
 # 1. Start local DynamoDB and Create the database table
 ./setup-local-dynamodb.sh
+
+# If you get a permission error, run:
+# chmod +x setup-local-dynamodb.sh
+# Or use: bash setup-local-dynamodb.sh
 
 # 2. Run the API
 make run-local
@@ -76,6 +82,62 @@ aws dynamodb list-tables --endpoint-url http://localhost:8000
 3. Try out endpoints interactively
 
 **Note:** Swagger only appears when `ASPNETCORE_ENVIRONMENT=Development`
+
+### Windows Users
+
+If you don't have `make` installed, you can:
+1. **Install make** via [Git Bash](https://git-scm.com/downloads) (comes with Git for Windows), [Chocolatey](https://chocolatey.org/) (`choco install make`), or [WSL](https://docs.microsoft.com/windows/wsl/)
+2. **Use PowerShell scripts and dotnet commands directly** (see below)
+
+#### Setup with PowerShell
+
+```powershell
+# 1. Start local DynamoDB and create table
+.\setup-local-dynamodb.ps1
+
+# If you get an execution policy error, run:
+# Unblock-File -Path .\setup-local-dynamodb.ps1
+# Or use: powershell -ExecutionPolicy Bypass -File .\setup-local-dynamodb.ps1
+
+# 2. Run the API
+cd BlsApi
+$env:ASPNETCORE_ENVIRONMENT="Development"
+dotnet run
+```
+
+#### Common Commands (Without Make)
+
+```powershell
+# Restore packages
+dotnet restore
+
+# Run locally in Development mode
+cd BlsApi
+$env:ASPNETCORE_ENVIRONMENT="Development"
+dotnet run
+
+# Run tests
+dotnet test
+
+# Build solution
+dotnet build -c Release
+
+# Publish API
+dotnet publish BlsApi/BlsApi.csproj -c Release
+
+# Deploy to AWS
+dotnet build -c Release
+dotnet publish BlsApi/BlsApi.csproj -c Release
+cd BlsCdkApp
+cdk deploy --require-approval never
+
+# Clean artifacts
+dotnet clean
+Remove-Item -Recurse -Force cdk.out -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force BlsApi/bin,BlsApi/obj -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force BlsApi.Tests/bin,BlsApi.Tests/obj -ErrorAction SilentlyContinue
+Remove-Item -Recurse -Force BlsCdkApp/bin,BlsCdkApp/obj -ErrorAction SilentlyContinue
+```
 
 ---
 
@@ -787,6 +849,8 @@ GitHub Actions will automatically deploy!
 
 ## Quick Command Reference
 
+### Mac/Linux
+
 ```bash
 # Documentation
 cat README.md              # This file - complete guide
@@ -800,11 +864,32 @@ make run-local             # Run API locally
 make test                  # Run unit tests
 
 # Deployment
-make deploy                # Alternative (with tests)
+make deploy                # Deploy to AWS (with tests)
 
 # Utilities
 make clean                 # Clean build artifacts
 make restore               # Restore packages
+```
+
+### Windows (PowerShell)
+
+```powershell
+# Documentation
+Get-Content README.md      # This file - complete guide
+
+# Local Development
+.\setup-local-dynamodb.ps1 # Setup local DynamoDB
+cd BlsApi; $env:ASPNETCORE_ENVIRONMENT="Development"; dotnet run  # Run API locally
+
+# Testing
+dotnet test                # Run unit tests
+
+# Deployment
+dotnet build -c Release; dotnet publish BlsApi/BlsApi.csproj -c Release; cd BlsCdkApp; cdk deploy
+
+# Utilities
+dotnet clean               # Clean build artifacts
+dotnet restore             # Restore packages
 ```
 
 ## Key Files
