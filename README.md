@@ -798,7 +798,6 @@ make run-local             # Run API locally
 
 # Testing
 make test                  # Run unit tests
-dotnet test --verbosity normal
 
 # Deployment
 make deploy                # Alternative (with tests)
