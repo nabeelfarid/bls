@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+  workflow_dispatch:  # Allow manual triggers
 
 jobs:
   deploy:
@@ -37,10 +38,13 @@ jobs:
           aws-region: ${{ secrets.AWS_REGION }}
       
       - name: Run Tests
-        run: make test
+        run: dotnet test --verbosity normal
       
-      - name: Build Lambda functions
-        run: make build
+      - name: Publish Web API
+        run: dotnet publish BlsApi/BlsApi.csproj -c Release
+      
+      - name: Build CDK App
+        run: dotnet build BlsCdkApp/BlsCdkApp.csproj
       
       - name: CDK Synth
         run: cdk synth
@@ -50,9 +54,20 @@ jobs:
       
       - name: Get API Gateway URL
         run: |
-          echo "Deployment completed!"
-          aws cloudformation describe-stacks \
+          echo "✅ Deployment completed!"
+          echo ""
+          echo "📍 API Endpoints:"
+          API_URL=$(aws cloudformation describe-stacks \
             --stack-name BlsCdkAppStack \
-            --query 'Stacks[0].Outputs[?OutputKey==`BooksApiEndpointF2AA70A2`].OutputValue' \
-            --output text
+            --query 'Stacks[0].Outputs[?OutputKey==`ApiUrl`].OutputValue' \
+            --output text)
+          echo "API URL: $API_URL"
+          echo ""
+          echo "Test your API:"
+          echo "  curl $API_URL/api/books"
+          echo ""
+          echo "Add a book:"
+          echo "  curl -X POST $API_URL/api/books \\"
+          echo "    -H 'Content-Type: application/json' \\"
+          echo "    -d '{\"title\":\"Clean Code\",\"author\":\"Robert C. Martin\",\"isbn\":\"978-0132350884\"}'"
 

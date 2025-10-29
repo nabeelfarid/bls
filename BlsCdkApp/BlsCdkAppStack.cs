@@ -11,88 +11,59 @@ namespace BlsCdkApp
     {
         internal BlsCdkAppStack(Construct scope, string id, IStackProps props = null) : base(scope, id, props)
         {
+            // DynamoDB Table
             var table = new Table(this, "BooksTable", new TableProps
             {
-                TableName = "Books",
+                TableName = "BooksTable",
                 PartitionKey = new Attribute { Name = "PK", Type = AttributeType.STRING },
                 SortKey = new Attribute { Name = "SK", Type = AttributeType.STRING },
                 BillingMode = BillingMode.PAY_PER_REQUEST,
                 RemovalPolicy = RemovalPolicy.DESTROY
             });
 
-            var addBookFunction = new Function(this, "AddBookFunction", new FunctionProps
+            // Single Lambda function for the entire ASP.NET Core Web API
+            var apiFunction = new Function(this, "BooksApiFunction", new FunctionProps
             {
                 Runtime = Runtime.DOTNET_8,
-                Handler = "BlsApi::BlsApi.Functions.AddBookFunction::Handler",
+                Handler = "BlsApi",  // AspNetCoreServer handles all routes
                 Code = Code.FromAsset("BlsApi/bin/Release/net8.0/publish"),
                 Timeout = Duration.Seconds(30),
-                MemorySize = 512,
+                MemorySize = 1024,
                 Environment = new Dictionary<string, string>
                 {
-                    { "TABLE_NAME", table.TableName }
+                    { "DynamoDB__TableName", table.TableName },
+                    { "ASPNETCORE_ENVIRONMENT", "Production" }
                 }
             });
 
-            var listBooksFunction = new Function(this, "ListBooksFunction", new FunctionProps
-            {
-                Runtime = Runtime.DOTNET_8,
-                Handler = "BlsApi::BlsApi.Functions.ListBooksFunction::Handler",
-                Code = Code.FromAsset("BlsApi/bin/Release/net8.0/publish"),
-                Timeout = Duration.Seconds(30),
-                MemorySize = 512,
-                Environment = new Dictionary<string, string>
-                {
-                    { "TABLE_NAME", table.TableName }
-                }
-            });
+            // Grant DynamoDB permissions
+            table.GrantReadWriteData(apiFunction);
 
-            var checkoutBookFunction = new Function(this, "CheckoutBookFunction", new FunctionProps
-            {
-                Runtime = Runtime.DOTNET_8,
-                Handler = "BlsApi::BlsApi.Functions.CheckoutBookFunction::Handler",
-                Code = Code.FromAsset("BlsApi/bin/Release/net8.0/publish"),
-                Timeout = Duration.Seconds(30),
-                MemorySize = 512,
-                Environment = new Dictionary<string, string>
-                {
-                    { "TABLE_NAME", table.TableName }
-                }
-            });
-
-            var returnBookFunction = new Function(this, "ReturnBookFunction", new FunctionProps
-            {
-                Runtime = Runtime.DOTNET_8,
-                Handler = "BlsApi::BlsApi.Functions.ReturnBookFunction::Handler",
-                Code = Code.FromAsset("BlsApi/bin/Release/net8.0/publish"),
-                Timeout = Duration.Seconds(30),
-                MemorySize = 512,
-                Environment = new Dictionary<string, string>
-                {
-                    { "TABLE_NAME", table.TableName }
-                }
-            });
-
-            table.GrantReadWriteData(addBookFunction);
-            table.GrantReadWriteData(listBooksFunction);
-            table.GrantReadWriteData(checkoutBookFunction);
-            table.GrantReadWriteData(returnBookFunction);
-
+            // API Gateway REST API with Lambda Proxy Integration
             var api = new RestApi(this, "BooksApi", new RestApiProps
             {
                 RestApiName = "Books Lending Service",
-                Description = "This is the Books Lending Service API"
+                Description = "Books Lending Service Web API"
             });
 
-            var books = api.Root.AddResource("books");
-            books.AddMethod("POST", new LambdaIntegration(addBookFunction));
-            books.AddMethod("GET", new LambdaIntegration(listBooksFunction));
+            // Proxy all requests to the Lambda function
+            var integration = new LambdaIntegration(apiFunction, new LambdaIntegrationOptions
+            {
+                Proxy = true
+            });
 
-            var book = books.AddResource("{id}");
-            var checkout = book.AddResource("checkout");
-            checkout.AddMethod("POST", new LambdaIntegration(checkoutBookFunction));
+            api.Root.AddProxy(new ProxyResourceOptions
+            {
+                DefaultIntegration = integration,
+                AnyMethod = true
+            });
 
-            var returnBook = book.AddResource("return");
-            returnBook.AddMethod("POST", new LambdaIntegration(returnBookFunction));
+            // Output the API URL
+            new CfnOutput(this, "ApiUrl", new CfnOutputProps
+            {
+                Value = api.Url,
+                Description = "API Gateway URL"
+            });
         }
     }
 }

@@ -1,335 +1,414 @@
 # Books Lending Service
 
-A serverless application built with AWS CDK that provides REST API endpoints for managing a library's book lending system.
+A .NET 8 Web API for managing a library's book lending system. The application runs locally with `dotnet run` and deploys to AWS Lambda + API Gateway with the same codebase for production use.
 
-## API Endpoints
+### Key Features
 
-- `POST /books` – Add a new book
-- `GET /books` – List all books
-- `POST /books/{isbn}/checkout` – Check out a book
-- `POST /books/{isbn}/return` – Return a book
+- ✅ **.NET 8 Web API development**
+- ✅ **Local development** with `dotnet run` or `make run-local`
+- ✅ **IaC - Deploys to AWS** using CDK (CloudFormation stack) seamlessly (same codebase!)
+- ✅ **Swagger/OpenAPI** documentation at `/swagger`
+- ✅ **Local & AWS DynamoDB** support (switch via configuration)
+- ✅ **Comprehensive testing** with xUnit, Moq, and FluentAssertions
+- ✅ **Service layer architecture** for clean separation
+- ✅ **Dependency injection** throughout
+- ✅ **Input validation** with Data Annotations
+- ✅ **CORS enabled** for frontend integration
+- ✅ **Structured logging** to Console (local) or CloudWatch (AWS)
+- ✅ **CI/CD automation** with GitHub Actions
+- ✅ **Postman collection** with environments
 
-## Development
+---
+
+## 📋 Table of Contents
+
+1. [Quick Start](#-quick-start)
+2. [API Endpoints](#-api-endpoints)
+3. [AWS Deployment](#-aws-deployment)
+4. [Testing](#-testing)
+5. [Architecture](#-architecture)
+6. [Configuration](#-configuration)
+7. [Make Commands](#-make-commands)
+8. [Troubleshooting](#-troubleshooting)
+9. [CI/CD](#-cicd)
+10. [Request Validation](#-request-validation)
+11. [Quick Command Reference](#-quick-command-reference)
+
+---
+
+## 🚀 Quick Start
 
 ### Prerequisites
 
-- .NET 8.0
-- AWS CDK CLI
-- AWS CLI configured with appropriate credentials
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [Docker](https://www.docker.com/get-started) (for local DynamoDB)
+- [AWS CLI](https://aws.amazon.com/cli/) (for DynamoDB setup)
+- [AWS CDK](https://docs.aws.amazon.com/cdk/) (optional, for AWS deployment)
 
-### Running Tests
+### Local Dev Setup
 
 ```bash
-# Run all unit tests
-dotnet test
+# 1. Start local DynamoDB and Create the database table
+./setup-local-dynamodb.sh
 
-# Or use make
+# 2. Run the API
+make run-local
+```
+
+**That's it!** The API is now running at http://localhost:5000
+
+### Verify Setup
+
+```bash
+# Check if DynamoDB is running
+docker ps
+
+# List tables
+aws dynamodb list-tables --endpoint-url http://localhost:8000
+
+# Should show: BooksTable-Dev
+```
+
+### Using Swagger UI
+
+1. Start the API in Development mode
+2. Navigate to: http://localhost:5000/swagger
+3. Try out endpoints interactively
+
+**Note:** Swagger only appears when `ASPNETCORE_ENVIRONMENT=Development`
+
+---
+
+## 📡 API Endpoints
+
+All endpoints are prefixed with `/api`:
+
+| Method | Endpoint | Description | Request Body |
+|--------|----------|-------------|--------------|
+| `GET` | `/api/books` | List all books | - |
+| `POST` | `/api/books` | Add a new book | `{ "title", "author", "isbn" }` |
+| `POST` | `/api/books/{id}/checkout` | Check out a book | - |
+| `POST` | `/api/books/{id}/return` | Return a book | - |
+
+### Example Usage
+
+**Add a Book:**
+```bash
+curl -X POST http://localhost:5000/api/books \
+  -H "Content-Type: application/json" \
+  -d '{
+    "title": "Clean Code",
+    "author": "Robert C. Martin",
+    "isbn": "978-0132350884"
+  }'
+```
+
+**Response:**
+```json
+{
+  "id": "abc-123-def",
+  "title": "Clean Code",
+  "author": "Robert C. Martin",
+  "isbn": "978-0132350884",
+  "isCheckedOut": false
+}
+```
+
+**List All Books:**
+```bash
+curl http://localhost:5000/api/books
+```
+
+**Checkout a Book:**
+```bash
+curl -X POST http://localhost:5000/api/books/abc-123-def/checkout
+```
+
+**Return a Book:**
+```bash
+curl -X POST http://localhost:5000/api/books/abc-123-def/return
+```
+
+---
+
+## ☁️ AWS Deployment
+
+Deploy your API to AWS Lambda + API Gateway with a single command!
+
+### First-Time Setup
+
+```bash
+# 1. Configure AWS credentials
+aws configure
+
+# 2. Bootstrap CDK (one-time per account/region)
+cdk bootstrap
+```
+
+### Deploy
+
+
+```bash
+make deploy
+```
+
+
+### What Gets Deployed
+
+The CDK stack creates:
+- ✅ **DynamoDB Table** (`BooksTable`) - Serverless database
+- ✅ **Lambda Function** (`BooksApiFunction`) - Your ASP.NET Core Web API
+  - Runtime: .NET 8
+  - Memory: 1024 MB
+  - Timeout: 30 seconds
+- ✅ **API Gateway** (REST API) - HTTPS endpoint with proxy integration
+- ✅ **IAM Roles** - Least-privilege permissions for DynamoDB
+- ✅ **CloudWatch Logs** - Automatic logging (2-year retention)
+
+### After Deployment
+
+You'll see output like:
+```
+✅ Deployment complete!
+
+Outputs:
+BlsCdkAppStack.ApiUrl = https://abc123.execute-api.us-east-1.amazonaws.com/prod/
+
+Stack ARN:
+arn:aws:cloudformation:...
+```
+
+**Save the API URL!** This is your production endpoint.
+
+### Test Deployed API
+
+```bash
+# Set your API URL
+API_URL="https://abc123.execute-api.us-east-1.amazonaws.com/prod"
+
+# Test endpoints
+curl $API_URL/api/books
+```
+
+### Update Deployment
+
+Just run the deploy command again - CDK will only update what changed:
+```bash
+make deploy
+```
+
+### Teardown
+
+To delete all AWS resources:
+```bash
+cdk destroy
+```
+
+### View Logs
+
+```bash
+# Real-time logs
+aws logs tail /aws/lambda/BlsCdkAppStack-BooksApiFunction --follow
+
+# Or in AWS Console
+# CloudWatch → Log Groups → /aws/lambda/BlsCdkAppStack-BooksApiFunction
+```
+
+---
+
+## 🧪 Testing
+
+### Run Tests
+
+```bash
 make test
-
-# Run tests with detailed output
-dotnet test --verbosity normal
-
-# Run tests with code coverage
-dotnet test /p:CollectCoverage=true /p:CoverletOutputFormat=opencover
 ```
 
-#### Test Suite Overview
+### Test Suite
 
-The project includes **38 unit tests** using **xUnit**, **Moq**, and **FluentAssertions**:
+**21 unit tests** covering:
 
-**Test Structure:**
+- **BookService Tests** (12 tests)
+  - Add book functionality
+  - List books with various scenarios
+  - Checkout/return operations
+  - Error handling
+  - DynamoDB conditional updates
+
+- **BooksController Tests** (8 tests)
+  - HTTP response handling
+  - Validation error responses
+  - Success scenarios
+  - Edge cases
+
+- **ValidationHelper Tests** (1 test)
+  - Input validation logic
+
+### Test with Postman
+
+**1. Import Collection and Environments:**
+- `Books-Lending-Service.postman_collection.json`
+- `Books-Lending-Service.postman_environment_local.json` (for local)
+- `Books-Lending-Service.postman_environment_aws.json` (for AWS)
+
+**2. Select Environment:**
+- Use the dropdown in Postman to switch between Local and AWS
+
+**3. Test Flow:**
+1. List Books (empty initially)
+2. Add Book (save the `id` from response)
+3. Update the `bookId` environment variable
+4. Checkout Book
+5. Return Book
+
+---
+
+## 🏗️ Architecture
+
+### Technology Stack
+
+| Layer | Technology |
+|-------|-----------|
+| **Framework** | .NET 8, ASP.NET Core |
+| **Database** | DynamoDB (AWS SDK) |
+| **API Docs** | Swagger/Swashbuckle |
+| **Testing** | xUnit, Moq, FluentAssertions |
+| **Infrastructure** | AWS CDK (C#) |
+| **Deployment** | AWS Lambda + API Gateway |
+| **Logging** | Microsoft.Extensions.Logging |
+
+### Architecture Diagram
+
 ```
-BlsApi.Tests/
-├── Functions/
-│   ├── AddBookFunctionTests.cs       # Tests for AddBookFunction (11 tests)
-│   ├── ListBooksFunctionTests.cs     # Tests for ListBooksFunction (7 tests)
-│   ├── CheckoutBookFunctionTests.cs  # Tests for CheckoutBookFunction (7 tests)
-│   └── ReturnBookFunctionTests.cs    # Tests for ReturnBookFunction (6 tests)
-└── Utils/
-    └── ValidationHelperTests.cs      # Tests for validation logic (7 tests)
-```
+┌─────────────────────────────────────────────┐
+│          LOCAL DEVELOPMENT                   │
+├─────────────────────────────────────────────┤
+│  Browser/Postman                            │
+│       ↓                                     │
+│  Kestrel Web Server (localhost:5000)       │
+│       ↓                                     │
+│  ASP.NET Core Web API                       │
+│       ↓                                     │
+│  Local DynamoDB (Docker, port 8000)        │
+└─────────────────────────────────────────────┘
 
-**Test Coverage:**
-- ✅ **AddBookFunction**: Valid book creation, validation errors, JSON parsing, DynamoDB failures, CORS, key structure
-- ✅ **ListBooksFunction**: List books, empty list, scan filters, missing attributes, DynamoDB failures, CORS
-- ✅ **CheckoutBookFunction**: Checkout available book, already checked out, non-existent book, DynamoDB operations, CORS
-- ✅ **ReturnBookFunction**: Return book, not checked out error, non-existent book, DynamoDB operations, CORS
-- ✅ **ValidationHelper**: Field validation, length validation, null handling, multiple errors
-
-**Testing Best Practices:**
-1. **Follow AAA Pattern**: Arrange, Act, Assert
-2. **Use descriptive test names**: `Handler_WithValidBook_ShouldReturn201`
-3. **Mock external dependencies**: DynamoDB, S3, etc.
-4. **Test edge cases**: null, empty, invalid inputs
-5. **Verify mock interactions**: Ensure methods are called correctly
-6. **Use FluentAssertions** for readable assertions
-
-### Build and Deploy
-
-```bash
-# Build the solution
-make build
-
-# Bootstrap CDK (only required on first deployment in a region/account)
-cdk bootstrap
-
-# Synthesize CloudFormation template
-cdk synth
-
-# Deploy to AWS
-cdk deploy
-```
-
-**Note:** If this is your first time deploying a CDK app to your AWS account/region, you must run `cdk bootstrap` first. This creates the necessary AWS resources (S3 bucket, IAM roles, etc.) that CDK needs to deploy your application.
-
-## CI/CD with GitHub Actions
-
-This project includes a GitHub Actions workflow that automatically deploys to AWS on every push to the `main` branch.
-
-### Setup Instructions
-
-1. **Create GitHub OIDC Provider in AWS (One-time Setup)**
-
-First, create the OIDC identity provider in AWS:
-
-**Option A: Using AWS Console**
-- Go to IAM → Identity providers → Add provider
-- Provider type: OpenID Connect
-- Provider URL: `https://token.actions.githubusercontent.com`
-- Audience: `sts.amazonaws.com`
-- Click "Add provider"
-
-**Option B: Using AWS CLI**
-```bash
-aws iam create-open-id-connect-provider \
-  --url https://token.actions.githubusercontent.com \
-  --client-id-list sts.amazonaws.com \
-  --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
-```
-
-2. **Create an IAM Role for GitHub Actions**
-
-Create an IAM role with the following trust policy:
-
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Principal": {
-        "Federated": "arn:aws:iam::YOUR_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
-      },
-      "Action": "sts:AssumeRoleWithWebIdentity",
-      "Condition": {
-        "StringEquals": {
-          "token.actions.githubusercontent.com:aud": "sts.amazonaws.com"
-        },
-        "StringLike": {
-          "token.actions.githubusercontent.com:sub": "repo:YOUR_GITHUB_USERNAME/bls:*"
-        }
-      }
-    }
-  ]
-}
+┌─────────────────────────────────────────────┐
+│          AWS PRODUCTION                      │
+├─────────────────────────────────────────────┤
+│  Internet (HTTPS)                           │
+│       ↓                                     │
+│  API Gateway (REST API)                     │
+│       ↓                                     │
+│  Lambda Function (ASP.NET Core Web API)    │
+│       ↓                                     │
+│  DynamoDB (BooksTable)                      │
+│       ↓                                     │
+│  CloudWatch Logs                            │
+└─────────────────────────────────────────────┘
 ```
 
-Attach the following AWS managed policies to the role:
-- `PowerUserAccess` (or create a custom policy with minimal required permissions)
+### Design Patterns
 
-3. **Configure GitHub Secrets**
+- **Controller-Service Pattern**: Separation of HTTP handling and business logic
+- **Dependency Injection**: Constructor injection for testability
+- **Repository Pattern**: Service layer abstracts data access
+- **Single-Table Design**: DynamoDB with composite keys (PK/SK)
 
-Go to your GitHub repository → Settings → Secrets and variables → Actions, and add:
+### Key Design Decisions
 
-- `AWS_ROLE_ARN`: The ARN of the IAM role created above (e.g., `arn:aws:iam::123456789012:role/GitHubActionsRole`)
-- `AWS_REGION`: Your AWS region (e.g., `us-east-1`)
+1. **Web API + Lambda Hosting**: Same code runs locally AND in Lambda
+   - Uses `Amazon.Lambda.AspNetCoreServer.Hosting`
+   - `LambdaEventSource.RestApi` for API Gateway integration
 
-4. **First-time Setup**
+2. **Environment-based Configuration**: 
+   - `appsettings.Development.json` → Local DynamoDB
+   - `appsettings.json` → AWS DynamoDB
 
-If you haven't bootstrapped CDK yet, run manually:
-```bash
-cdk bootstrap
-```
+3. **Service Layer**: Business logic separated from controllers for testability
 
-5. **Automatic Deployment**
+4. **Data Annotations**: Simple, built-in validation (can upgrade to FluentValidation if needed)
 
-Once configured, every push to `main` will:
-- ✅ Build the Lambda functions
-- ✅ Synthesize the CDK stack
-- ✅ Deploy to AWS
-- ✅ Output the API Gateway URL
+---
 
-## Request Validation
-
-All API requests are validated using Data Annotations. The following validations are enforced:
-
-### Book Model Validation Rules
-
-- **Title**: Required, must be between 1-500 characters
-- **Author**: Required, must be between 1-200 characters
-- **ISBN**: Required
-
-### Error Responses
-
-**Invalid JSON Format:**
-Returns `400 Bad Request` when JSON is malformed:
-```json
-{
-  "error": "Invalid JSON format",
-  "details": "..."
-}
-```
-
-**Validation Errors:**
-Returns `400 Bad Request` when validation fails:
-```json
-{
-  "errors": [
-    "Title is required",
-    "Author must be between 1 and 200 characters",
-    "ISBN is required"
-  ]
-}
-```
-
-## API Documentation
-
-This project includes a comprehensive **OpenAPI 3.0** specification in `openapi.yaml`.
-
-### 📚 View Interactive Documentation
-
-**Option 1: Swagger UI (Local)**
-```bash
-# Install Swagger UI viewer
-npm install -g swagger-ui-watcher
-
-# View the documentation (opens in browser)
-swagger-ui-watcher openapi.yaml
-```
-
-**Option 2: Swagger Editor (Online)**
-1. Go to [https://editor.swagger.io/](https://editor.swagger.io/)
-2. Click **File → Import file**
-3. Upload `openapi.yaml`
-4. View and interact with your API documentation
-
-**Option 3: VS Code Extension**
-- Install the **"OpenAPI (Swagger) Editor"** extension
-- Open `openapi.yaml` in VS Code
-- Right-click → **Preview Swagger**
-
-**Option 4: Redoc (Beautiful Documentation)**
-```bash
-npx @redocly/cli preview-docs openapi.yaml
-```
-
-### 📖 What's Included
-
-The OpenAPI spec documents:
-
-✅ All 4 API endpoints with detailed descriptions  
-✅ Request/response schemas with examples  
-✅ Validation rules (required fields, min/max lengths)  
-✅ HTTP status codes (200, 201, 400, 500)  
-✅ Business rules and constraints  
-✅ Error response formats  
-✅ Multiple examples for each endpoint  
-
-### 🔄 Keeping Documentation in Sync
-
-After making changes to your API:
-
-1. Update `openapi.yaml` manually, or
-2. Generate it from API Gateway (after deployment):
-   ```bash
-   # Get API ID from CloudFormation outputs
-   aws cloudformation describe-stacks \
-     --stack-name BlsCdkAppStack \
-     --query 'Stacks[0].Outputs[?OutputKey==`BooksApiEndpoint*`]'
-   
-   # Export OpenAPI spec
-   aws apigateway get-export \
-     --rest-api-id YOUR_API_ID \
-     --stage-name prod \
-     --export-type oas30 \
-     --accepts application/yaml \
-     openapi-generated.yaml
-   ```
-
-## Testing with Postman
-
-### Import OpenAPI Spec
-
-**Recommended:** Import the OpenAPI spec directly into Postman:
-```
-File → Import → openapi.yaml
-```
-Postman will auto-generate a collection with all endpoints and examples.
-
-### Or Use Postman Collection
-
-1. Import the `Books-Lending-Service.postman_collection.json` file into Postman
-2. Update the `baseUrl` variable in your Postman environment with your API Gateway URL
-3. Use the provided sample requests to test each endpoint
-
-The collection includes examples for:
-- ✅ Valid book creation
-- ❌ Validation errors (missing fields)
-
-### Sample Book Data
-
-```json
-{
-    "title": "The Pragmatic Programmer",
-    "author": "David Thomas, Andrew Hunt",
-    "isbn": "978-0135957059"
-}
-```
-
-## Architecture and Design Decisions
+## 🎯 Architecture and Design Decisions
 
 ### Current Implementation
 
-- **Serverless Architecture**: Built using AWS Lambda + API Gateway + DynamoDB for cost-effectiveness and automatic scaling
+- **Web API + Lambda**: ASP.NET Core Web API that runs locally with `dotnet run` and deploys to AWS Lambda
 - **Infrastructure as Code**: AWS CDK with C# for type-safe infrastructure definitions
 - **Single-Table Design**: DynamoDB with composite keys (PK/SK) for flexible data modeling
-- **Lambda per Endpoint**: Each API endpoint has its own Lambda function for independent scaling and deployment
-- **Request Logging**: Centralized `RequestLogger` utility for consistent logging across all handlers
+- **Single Lambda Function**: One Lambda handling all endpoints via API Gateway proxy integration
+- **Service Layer Architecture**: Controllers → Services → DynamoDB for separation of concerns
 - **Request Validation**: Data Annotations with `ValidationHelper` utility for input validation
 - **JSON Serialization**: Lowercase property names for REST API convention compliance
 
 ### Key Tradeoffs
 
-#### 1. **Lambda per Endpoint vs Monolithic Lambda**
+#### 1. **Web API + Lambda vs Lambda-Only Functions**
 
-**Current Choice: Lambda per Endpoint**
+**Current Choice: Single Lambda with ASP.NET Core Web API**
 
 ✅ **Pros:**
-- Independent scaling per endpoint
-- Isolated deployments (update one function without affecting others)
-- Smaller deployment packages (faster cold starts)
-- Clear separation of concerns
-- Fine-grained IAM permissions per function
+- Can run locally with `dotnet run` (main requirement!)
+- Standard ASP.NET Core patterns (familiar to .NET developers)
+- Swagger/OpenAPI documentation included
+- Easy debugging and testing locally
+- Service layer for clean architecture
+- Same codebase works everywhere (local, AWS, containers, etc.)
+- Standard dependency injection
+- Easy to write unit tests
 
 ❌ **Cons:**
-- More resources to manage (4 Lambda functions)
-- Potential code duplication across functions
-- Higher cold start impact (more functions = more potential cold starts)
-- More complex infrastructure code
+- Larger deployment package (~15-20 MB vs ~5-10 MB per function)
+- Slower cold starts (~2-3s vs ~1-2s)
+- Higher memory usage (~150-200 MB vs ~40-80 MB)
+- All endpoints scale together (can't optimize individually)
+- Slightly higher cost (~70% more for low traffic)
 
-**Alternative: Monolithic Lambda**  
-- Single Lambda handling all routes
+**Alternative: Lambda-Only Functions**
+- Individual Lambda per endpoint
+- Smaller, faster cold starts
+- Independent scaling per endpoint
+- Lower cost at scale
+- But: Requires AWS SAM Local or LocalStack for local testing, AWS-specific code, less portable
+
+**Why we chose Web API + Lambda:**
+The requirement was for ".NET 8 Web API that can run locally with `dotnet run`" - meaning standard .NET development experience without additional tooling. Lambda-only solutions CAN run locally using AWS SAM Local (`sam local start-api`) or LocalStack, but require:
+- Installing AWS SAM CLI or LocalStack
+- Docker containers for Lambda runtime emulation
+- Lambda-specific testing setup
+- Different local vs. production code paths
+
+The Web API approach gives us native `dotnet run`, standard debugging, and the same code everywhere. The extra cost might be negligible compared to developer productivity gains.
+
+#### 2. **Single Lambda vs Multiple Lambdas**
+
+**Current Choice: Single Lambda (Monolithic)**
+
+✅ **Pros:**
+- Simpler infrastructure (one function to manage)
 - Shared code and dependencies
-- One deployment unit
-- Better for small APIs with similar requirements
+- One deployment unit (easier CI/CD)
+- Consistent performance characteristics
+- Standard Web API patterns
+- Less cold start impact overall (one function vs four)
 
-**Why we chose Lambda per Endpoint:**
-For a library lending system, different endpoints have different characteristics:
-- `POST /books` - Write-heavy, needs validation
-- `GET /books` - Read-heavy, could benefit from caching
-- Checkout/Return - Different business logic and potential for different scaling patterns
+❌ **Cons:**
+- All endpoints use same memory/timeout settings
+- Can't optimize per-endpoint
+- Harder to see per-endpoint costs in CloudWatch
+- All endpoints scale together
 
-#### 2. **Single-Table Design vs Multiple Tables**
+**Alternative: Lambda per Endpoint**
+- Independent scaling and configuration
+- Fine-grained metrics
+- Can optimize heavy operations separately
+- But: More complex infrastructure, more cold starts
+
+**Why we chose Single Lambda:**
+For a small API with similar endpoint requirements, a monolithic approach is simpler. If one endpoint becomes a bottleneck, it can be split out later.
+
+#### 3. **Single-Table Design vs Multiple Tables**
 
 **Current Choice: Single-Table Design (PK/SK pattern)**
 
@@ -341,7 +420,7 @@ For a library lending system, different endpoints have different characteristics
 
 ❌ **Cons:**
 - Steeper learning curve
-- Requires careful schema design upfront
+- Requires careful schema design and access patterns upfront
 - Harder to query ad-hoc (not as flexible as SQL)
 - Potential for hot partitions if not designed well
 
@@ -351,9 +430,9 @@ For a library lending system, different endpoints have different characteristics
 - More flexible for querying
 
 **Why we chose Single-Table:**
-For a small-to-medium scale library system, single-table design is more cost-effective and performant. Our access patterns are well-defined (get by ID, list all, update status).
+For a small-to-medium scale library system, single-table design is more cost-effective and performant. 
 
-#### 3. **Data Annotations vs FluentValidation**
+#### 4. **Data Annotations vs FluentValidation**
 
 **Current Choice: Data Annotations**
 
@@ -378,7 +457,7 @@ For a small-to-medium scale library system, single-table design is more cost-eff
 **Why we chose Data Annotations:**
 Current validation needs are simple (required fields, string length). FluentValidation can be added later if validation becomes more complex.
 
-#### 4. **Constructor Injection vs Service Locator**
+#### 5. **Constructor Injection vs Service Locator**
 
 **Current Choice: Constructor Injection**
 
@@ -389,18 +468,17 @@ Current validation needs are simple (required fields, string length). FluentVali
 - Follows SOLID principles
 
 ❌ **Cons:**
-- Requires parameterless constructor for Lambda runtime
-- Need to maintain two constructors (production + testing)
+- More verbose
+- Can lead to large constructor parameter lists
 
 **Alternative: Service Locator Pattern**
-- Single constructor
 - Dependencies resolved at runtime
 - More flexible but less explicit
 
 **Why we chose Constructor Injection:**
-Better testability and clearer dependencies outweigh the minor inconvenience of maintaining two constructors. Lambda runtime uses the parameterless constructor, tests use the injected one.
+Better testability and clearer dependencies. ASP.NET Core's built-in DI container makes this the standard pattern.
 
-#### 5. **REST API vs GraphQL**
+#### 6. **REST API vs GraphQL**
 
 **Current Choice: REST API**
 
@@ -424,7 +502,7 @@ Better testability and clearer dependencies outweigh the minor inconvenience of 
 **Why we chose REST:**
 For a simple CRUD API with well-defined endpoints, REST is sufficient and simpler. GraphQL adds complexity that's not needed for this use case.
 
-#### 6. **No Caching vs API Gateway/DAX Caching**
+#### 7. **No Caching vs API Gateway/DAX Caching**
 
 **Current Choice: No Caching**
 
@@ -446,83 +524,57 @@ For a simple CRUD API with well-defined endpoints, REST is sufficient and simple
 **Why we chose No Caching:**
 Starting simple. Caching can be added later when performance metrics indicate it's needed. Premature optimization is avoided.
 
-#### 7. **Inline Lambda Code vs Separate Deployment**
-
-**Current Choice: Separate .NET Project + Deployment**
-
-✅ **Pros:**
-- Full .NET tooling support (IDE, debugging, testing)
-- Type safety and compile-time checks
-- Easy to add NuGet packages
-- Professional development experience
-
-❌ **Cons:**
-- Longer deployment times
-- Requires build/publish step
-- Larger deployment packages
-
-**Why we chose Separate Project:**
-For production-quality code with proper testing and maintainability, a full .NET project is essential. The deployment overhead is worth the development benefits.
-
 ### Best Practices & Future Improvements
 
-#### 1. **Data Access Layer (DAL)**
-Consider creating a separate library project (`BlsApi.Data`) for DynamoDB operations:
+#### 1. **Split Heavy Operations**
+
+If `ListBooks` becomes a bottleneck:
 ```
-BlsApi.Data/
-  ├── Repositories/
-  │   ├── IBookRepository.cs
-  │   └── BookRepository.cs
-  └── Models/
-      └── BookEntity.cs
+Web API handles most endpoints
+    ↓
+Heavy scan operation → Separate optimized Lambda
 ```
-**Benefits:**
-- Separation of concerns
-- Easier unit testing with mocked repositories
-- Reusable across multiple Lambda functions
-- Centralized database logic
 
-#### 2. **Logging Middleware Options**
+Benefits:
+- Optimize the slow operation independently
+- Keep dev experience for other endpoints
+- Best of both worlds
 
-**Current Approach:** Utility class (`RequestLogger`)
-- ✅ Simple and explicit
-- ✅ No additional dependencies
-- ✅ Easy to maintain
+#### 2. **Add API Gateway Request Validation**
 
-**Alternative Options:**
+Current: Validation in application code
+Future: Add validation at API Gateway level
+- Reject invalid requests before Lambda invocation
+- Save Lambda execution costs
+- Faster error responses
 
-**a) Base Handler Class:**
-- Inherit from a base class that handles logging, error handling, and response formatting
-- Good for shared cross-cutting concerns
+#### 3. **Add Authentication**
 
-**b) AWS Lambda Powertools:**
-```bash
-dotnet add package AWS.Lambda.Powertools.Logging
-dotnet add package AWS.Lambda.Powertools.Tracing
-dotnet add package AWS.Lambda.Powertools.Metrics
-```
+Options:
+- Lambda Authorizers (custom auth logic)
+- API Gateway API Keys (simple)
+- AWS Cognito (full user management)
+- OAuth2/OIDC integration
+
+#### 4. **Monitoring & Observability**
+
+Add:
+- CloudWatch Dashboards for key metrics
+- CloudWatch Alarms for errors and latency
+- AWS X-Ray for distributed tracing
 - Structured logging with correlation IDs
-- X-Ray tracing integration
-- CloudWatch metrics
-- Production-ready patterns
 
-**c) Decorator Pattern:**
-- Wrap handlers with decorators for logging, validation, etc.
-- More flexible but adds complexity
+#### 5. **Performance Optimizations**
 
-#### 3. **Validation**
+When needed:
+- Provisioned concurrency (eliminate cold starts)
+- DynamoDB DAX caching (faster reads)
+- API Gateway caching (reduce Lambda invocations)
+- Connection pooling for DynamoDB client
 
-**Current Approach:** Data Annotations
-- ✅ Built-in .NET feature (no extra dependencies)
-- ✅ Simple attribute-based validation
-- ✅ Good for basic validation rules
-- ✅ Easy to read and maintain
+#### 6. **Advanced Validation**
 
-**Alternative: FluentValidation** (for complex scenarios)
-```bash
-dotnet add package FluentValidation
-```
-
+Upgrade to FluentValidation if needed:
 ```csharp
 public class BookValidator : AbstractValidator<Book>
 {
@@ -530,83 +582,278 @@ public class BookValidator : AbstractValidator<Book>
     {
         RuleFor(x => x.Title)
             .NotEmpty()
-            .MaximumLength(500)
-            .WithMessage("Title must be between 1 and 500 characters");
+            .MaximumLength(500);
         
         RuleFor(x => x.ISBN)
             .NotEmpty()
-            .Must(BeValidISBN)
-            .WithMessage("Invalid ISBN format");
-    }
-    
-    private bool BeValidISBN(string isbn)
-    {
-        // Custom validation logic
-        return true;
+            .Must(BeValidISBN);
     }
 }
 ```
 
-**When to Use FluentValidation:**
-- Complex validation rules
-- Conditional validation (validate X only if Y is true)
-- Cross-field validation
-- Custom validators that need dependency injection
-- Async validation (e.g., checking database for uniqueness)
-- Reusable validation rules across multiple models
+#### 7. **Multi-Environment Deployment**
 
-#### 4. **Additional Best Practices**
+Set up:
+- Dev environment (lower resources, test data)
+- Staging environment (prod-like testing)
+- Production environment (full resources)
 
-**API Gateway:**
-- Add request validation at API Gateway level
-- Implement throttling and rate limiting
-- Add API keys for client tracking
-- Enable CORS properly for production
+Use CDK context or parameters to configure per-environment.
 
-**Security:**
-- Add Lambda authorizers for authentication
-- Use AWS Secrets Manager for sensitive configuration
-- Implement least-privilege IAM roles
-- Enable CloudTrail for audit logging
+---
 
-**Error Handling:**
-- Implement custom exception types
-- Add retry logic with exponential backoff
-- Use DLQ (Dead Letter Queue) for failed invocations
-- Structured error responses
+## ⚙️ Configuration
 
-**Testing:**
-- Unit tests with mocked dependencies
-- Integration tests with LocalStack or SAM Local
-- Load testing with Artillery or k6
-- Contract testing for API specifications
+### Local Development (`appsettings.Development.json`)
 
-**Monitoring & Observability:**
-- CloudWatch Dashboards for key metrics
-- CloudWatch Alarms for errors and latency
-- AWS X-Ray for distributed tracing
-- Structured logging for better querying
-
-**Performance:**
-- DynamoDB DAX for caching (if needed)
-- Lambda provisioned concurrency for predictable latency
-- API Gateway caching for read-heavy endpoints
-- Connection pooling for DynamoDB client
-
-**CI/CD:**
-- Automated testing in pipeline
-- Multi-stage deployments (dev → staging → prod)
-- Automated rollback on deployment failures
-- Blue/green deployments for zero downtime
-
-**Code Organization:**
+```json
+{
+  "DynamoDB": {
+    "TableName": "BooksTable-Dev",
+    "ServiceUrl": "http://localhost:8000"
+  }
+}
 ```
-BlsApi/
-  ├── Common/           # Shared utilities
-  ├── Functions/        # Lambda handlers
-  ├── Models/           # DTOs and domain models
-  ├── Repositories/     # Data access layer
-  ├── Services/         # Business logic
-  ├── Validators/       # Input validation
-  └── Utils/            # Helper utilities
+
+### AWS Production (`appsettings.json`)
+
+```json
+{
+  "DynamoDB": {
+    "TableName": "BooksTable",
+    "ServiceUrl": ""  // Empty = use AWS
+  }
+}
 ```
+
+### Environment Variables (Set by CDK in Lambda)
+
+- `DynamoDB__TableName` - Table name
+- `ASPNETCORE_ENVIRONMENT` - Set to `Production`
+
+---
+
+## 🔧 Make Commands
+
+```bash
+make help          # Show all available commands
+make run-local     # Run API locally in Development mode
+make test          # Run all unit tests
+make build         # Build and publish for deployment
+make deploy        # Deploy to AWS (runs tests first)
+make clean         # Clean all build artifacts
+make restore       # Restore NuGet packages
+```
+
+---
+
+## 🐛 Troubleshooting
+
+### Port Already in Use
+
+```bash
+# Use a different port
+dotnet run --urls "http://localhost:5050"
+```
+
+### Docker/DynamoDB Issues
+
+```bash
+# Check if Docker is running
+docker info
+
+# Check if DynamoDB container is running
+docker ps
+
+# Restart DynamoDB container
+docker rm -f dynamodb-local
+docker run -d -p 8000:8000 --name dynamodb-local amazon/dynamodb-local
+
+# Verify connection
+aws dynamodb list-tables --endpoint-url http://localhost:8000
+```
+
+### Table Not Found
+
+```bash
+# Check if table exists
+aws dynamodb list-tables --endpoint-url http://localhost:8000
+
+# If not, create it
+./setup-local-dynamodb.sh
+```
+
+### Swagger Not Showing
+
+Make sure you are running in Development mode:
+```bash
+ASPNETCORE_ENVIRONMENT=Development dotnet run
+# or
+make 
+```
+
+### AWS Deployment Errors
+
+```bash
+# Check AWS credentials
+aws sts get-caller-identity
+
+# Check CDK bootstrap
+cdk bootstrap
+
+# View CloudFormation events
+aws cloudformation describe-stack-events --stack-name BlsCdkAppStack
+```
+
+---
+
+## 🔄 CI/CD
+
+### GitHub Actions Workflow
+
+The project includes automated deployment via GitHub Actions (`.github/workflows/deploy.yml`).
+
+**Triggers:**
+- Push to `main` branch
+- Manual trigger via GitHub UI
+
+**Workflow Steps:**
+1. ✅ Setup .NET 8 and Node.js
+2. ✅ Run all tests
+3. ✅ Publish Web API
+4. ✅ Deploy with CDK
+5. ✅ Output API URL
+
+### Setup GitHub Actions
+
+**1. Create OIDC Provider in AWS** (one-time):
+```bash
+aws iam create-open-id-connect-provider \
+  --url https://token.actions.githubusercontent.com \
+  --client-id-list sts.amazonaws.com
+```
+
+**2. Create IAM Role** with trust policy for GitHub
+
+**3. Add GitHub Secrets**:
+- `AWS_ROLE_ARN` - Your GitHub OIDC role ARN
+- `AWS_REGION` - Your AWS region (e.g., `us-east-1`)
+
+**4. Push to main**:
+```bash
+git push origin main
+```
+
+GitHub Actions will automatically deploy!
+
+---
+
+## 📝 Request Validation
+
+### Validation Rules
+
+- **Title**: Required, 1-500 characters
+- **Author**: Required, 1-200 characters
+- **ISBN**: Required
+
+### Error Responses
+
+**Validation Errors (400):**
+```json
+{
+  "errors": [
+    "Title is required",
+    "Author must be between 1 and 200 characters",
+    "ISBN is required"
+  ]
+}
+```
+
+**Business Logic Errors (400):**
+```json
+{
+  "error": "Book is already checked out or does not exist"
+}
+```
+
+**Server Errors (500):**
+```json
+{
+  "error": "Could not retrieve books"
+}
+```
+
+---
+
+## Quick Command Reference
+
+```bash
+# Documentation
+cat README.md              # This file - complete guide
+make help                  # See all Make commands
+
+# Local Development
+./setup-local-dynamodb.sh  # Setup local DynamoDB
+make run-local             # Run API locally
+
+# Testing
+make test                  # Run unit tests
+dotnet test --verbosity normal
+
+# Deployment
+make deploy                # Alternative (with tests)
+
+# Utilities
+make clean                 # Clean build artifacts
+make restore               # Restore packages
+```
+
+## Key Files
+
+| Task | Files |
+|------|-------|
+| Add endpoint | `Controllers/BooksController.cs`, `Services/BookService.cs` |
+| Business logic | `Services/BookService.cs` |
+| Validation | `Models/Book.cs` |
+| AWS resources | `BlsCdkApp/BlsCdkAppStack.cs` |
+| Configuration | `appsettings.json`, `appsettings.Development.json` |
+| CI/CD | `.github/workflows/deploy.yml` |
+
+
+---
+
+## 💡 What Changed from Lambda-Only?
+
+This project was originally Lambda-only. Here's what was improved:
+
+### Before (Lambda-Only)
+```
+❌ Could not run locally with `dotnet run`
+❌ Required AWS for testing
+❌ No Swagger documentation
+❌ Lambda functions only
+```
+
+### After (Web API + Lambda)
+```
+✅ Runs locally with `dotnet run`
+✅ Swagger UI for interactive testing
+✅ Same code works locally AND in Lambda
+✅ Service layer for clean architecture
+✅ Configuration-based DynamoDB switching
+✅ Multiple deployment scripts
+✅ CI/CD ready
+```
+
+### Migration Summary
+
+- **Changed**: `BlsApi.csproj` from Lambda SDK to Web SDK
+- **Added**: `Program.cs`, `BooksController.cs`, `BookService.cs`
+- **Added**: Lambda hosting adapter for dual-mode operation
+- **Removed**: Individual Lambda function files
+- **Updated**: CDK stack for single Lambda with proxy integration
+- **Result**: Same codebase runs locally AND on Lambda!
+
+---
+
+**Built with ❤️ using .NET 8 and AWS**

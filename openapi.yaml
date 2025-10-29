@@ -2,9 +2,9 @@ openapi: 3.0.3
 info:
   title: Books Lending Service API
   description: |
-    A serverless REST API for managing a library's book lending system.
+    A .NET 8 Web API for managing a library's book lending system.
     
-    Built with AWS CDK, Lambda, API Gateway, and DynamoDB.
+    **The same codebase runs locally with `dotnet run` AND on AWS Lambda!**
     
     ## Features
     - Add new books to the library
@@ -12,11 +12,27 @@ info:
     - Check out books
     - Return books
     
+    ## Technology Stack
+    - **Framework**: .NET 8, ASP.NET Core
+    - **Database**: DynamoDB (local or AWS)
+    - **Deployment**: AWS Lambda + API Gateway (via CDK)
+    - **Documentation**: Swagger/OpenAPI
+    
+    ## Local Development
+    ```bash
+    # Run locally
+    make run-local
+    
+    # Access Swagger UI
+    http://localhost:5000/swagger
+        
     ## Authentication
     Currently, this API does not require authentication (public endpoints).
+
     
     ## Rate Limiting
-    API Gateway default throttling limits apply (10,000 requests per second per region).
+    - **Local**: No rate limiting
+    - **AWS**: API Gateway default throttling (10,000 req/sec per region)
     
   version: 1.0.0
   contact:
@@ -27,17 +43,19 @@ info:
     url: https://opensource.org/licenses/MIT
 
 servers:
+  - url: http://localhost:5000
+    description: Local development server
   - url: https://your-api-id.execute-api.us-east-1.amazonaws.com/prod
-    description: Production server (replace with your API Gateway URL)
+    description: AWS Production (replace with your API Gateway URL after deployment)
 
 tags:
   - name: Books
-    description: Book management operations
+    description: Book management operations (add, list)
   - name: Checkout
     description: Book checkout and return operations
 
 paths:
-  /books:
+  /api/books:
     post:
       tags:
         - Books
@@ -55,7 +73,7 @@ paths:
       security: []
       requestBody:
         required: true
-        description: Book details to add
+        description: Book details to add to the library
         content:
           application/json:
             schema:
@@ -108,16 +126,17 @@ paths:
                       - "Title is required"
                       - "Author is required"
                       - "ISBN is required"
+                emptyFields:
+                  summary: Empty field values
+                  value:
+                    errors:
+                      - "Title must be between 1 and 500 characters"
+                      - "Author must be between 1 and 200 characters"
                 titleTooLong:
                   summary: Title exceeds maximum length
                   value:
                     errors:
                       - "Title must be between 1 and 500 characters"
-                invalidJson:
-                  summary: Invalid JSON format
-                  value:
-                    errors:
-                      - "Invalid JSON format: Unexpected character at position 42"
         '500':
           description: Internal server error
           content:
@@ -180,11 +199,11 @@ paths:
                 $ref: '#/components/schemas/Error'
               examples:
                 serverError:
-                  summary: Server error
+                  summary: Database connection error
                   value:
                     error: "Could not retrieve books"
 
-  /books/{id}/checkout:
+  /api/books/{id}/checkout:
     post:
       tags:
         - Checkout
@@ -248,7 +267,7 @@ paths:
                   value:
                     error: "Could not checkout book"
 
-  /books/{id}/return:
+  /api/books/{id}/return:
     post:
       tags:
         - Checkout
@@ -267,7 +286,7 @@ paths:
         - name: id
           in: path
           required: true
-          description: Unique book identifier (UUID)
+          description: Unique book identifier (UUID from the book object)
           schema:
             type: string
             format: uuid
@@ -337,7 +356,7 @@ components:
           type: string
           description: |
             International Standard Book Number (ISBN).
-            Can be ISBN-10 or ISBN-13 format.
+            Accepts ISBN-10, ISBN-13, or any format.
           example: "978-0135957059"
       description: Input schema for creating a new book
 
@@ -371,7 +390,7 @@ components:
           type: string
           description: Success message
           example: "Operation completed successfully"
-      description: Generic success response
+      description: Standard success response for operations that don't return data
 
     Error:
       type: object
@@ -381,12 +400,8 @@ components:
         error:
           type: string
           description: Error message describing what went wrong
-          example: "Could not complete the operation"
-        details:
-          type: string
-          description: Additional error details (optional)
-          example: "DynamoDB connection timeout"
-      description: Error response for 4xx and 5xx status codes
+          example: "Book is already checked out or does not exist"
+      description: Standard error response for 4xx and 5xx status codes
 
     ValidationError:
       type: object
@@ -402,6 +417,7 @@ components:
           example:
             - "Title is required"
             - "Author must be between 1 and 200 characters"
+            - "ISBN is required"
       description: Validation error response with detailed error messages
 
   securitySchemes:
@@ -413,10 +429,15 @@ components:
       description: API key for authentication (not currently implemented)
 
 # Security is commented out as the API is currently public
+# To enable API key authentication, uncomment the following and add API keys to API Gateway:
 # security:
 #   - apiKeyAuth: []
 
 externalDocs:
-  description: GitHub Repository
+  description: |
+    View the complete documentation, setup instructions, and source code on GitHub.
+    
+    **Quick Links:**
+    - README: Complete setup and usage guide
+    - Test collection: Postman collection included in repository
   url: https://github.com/nabeelfarid/bls
-
